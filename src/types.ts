@@ -94,6 +94,8 @@ export interface ServiceBooking {
 }
 
 export type OrderStatus = 'pending' | 'accepted' | 'preparing' | 'ready_to_ship' | 'shipped' | 'delivered' | 'cancelled';
+export type PaymentMethodType = 'gcash' | 'paymaya' | 'cod' | 'bank_transfer';
+export type PaymentStatusType = 'pending_verification' | 'verified' | 'paid' | 'unpaid' | 'failed';
 
 export interface OrderItem {
   productId: string;
@@ -120,7 +122,13 @@ export interface Order {
   };
   status: OrderStatus;
   createdAt: string;
-  paymentMethod: string;
+  paymentMethod: PaymentMethodType | string;
+  paymentStatus?: PaymentStatusType;
+  paymentReference?: string;
+  paymentReceiptUrl?: string;
+  paymentNotes?: string;
+  verifiedAt?: string;
+  verifiedBy?: string;
 }
 
 export interface CartItem {
@@ -151,6 +159,7 @@ export interface SiteSettings {
   servicesBadge: string;
   servicesTitle: string;
   servicesSubtitle: string;
+  servicesSubtitle_unused?: string;
 
   // Parts Catalog Section
   partsBadge: string;
@@ -179,6 +188,26 @@ export interface SiteSettings {
   socialFacebook: string;
   socialTwitter: string;
   copyrightText: string;
+
+  // Payment Gateways & E-Wallets (GCash & Maya QR Ph)
+  paymentGcashEnabled?: boolean;
+  paymentGcashName?: string;
+  paymentGcashNumber?: string;
+  paymentGcashQr?: string;
+  paymentGcashInstructions?: string;
+
+  paymentPaymayaEnabled?: boolean;
+  paymentPaymayaName?: string;
+  paymentPaymayaNumber?: string;
+  paymentPaymayaQr?: string;
+  paymentPaymayaInstructions?: string;
+
+  paymentCodEnabled?: boolean;
+  paymentBankEnabled?: boolean;
+  paymentBankName?: string;
+  paymentBankAccountName?: string;
+  paymentBankAccountNumber?: string;
+  paymentBankInstructions?: string;
 }
 
 export interface GalleryBuild {

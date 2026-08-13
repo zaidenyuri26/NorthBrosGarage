@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { User, ShoppingBag, Car, Shield, X, MapPin, Phone, CheckCircle2, History, Settings, ExternalLink, Plus } from 'lucide-react';
 import { UserProfile, Order, Product } from '../types';
 import { fetchOrders, saveUserProfile } from '../lib/dbService';
+import { useToast } from '../context/ToastContext';
 
 interface CustomerDashboardProps {
   onClose: () => void;
@@ -16,6 +17,7 @@ export const CustomerDashboard: React.FC<CustomerDashboardProps> = ({
   onAddToCart,
   products = []
 }) => {
+  const { toast } = useToast();
   const [activeTab, setActiveTab] = useState<'orders' | 'garage' | 'profile'>('orders');
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
@@ -62,26 +64,36 @@ export const CustomerDashboard: React.FC<CustomerDashboardProps> = ({
 
   const handleSaveProfile = async (e: React.FormEvent) => {
     e.preventDefault();
-    const updatedUser: UserProfile = {
-      ...user,
-      displayName,
-      phone,
-      shippingAddress: { street, city, state, zipCode }
-    };
-    await saveUserProfile(updatedUser);
-    setSavedSuccess(true);
-    setTimeout(() => setSavedSuccess(false), 2000);
+    try {
+      const updatedUser: UserProfile = {
+        ...user,
+        displayName,
+        phone,
+        shippingAddress: { street, city, state, zipCode }
+      };
+      await saveUserProfile(updatedUser);
+      setSavedSuccess(true);
+      toast.success('Profile Updated', 'Your customer details and delivery address were saved.');
+      setTimeout(() => setSavedSuccess(false), 2000);
+    } catch (err) {
+      toast.error('Save Failed', 'Unable to update profile.');
+    }
   };
 
   const handleSaveVehicleProfile = async (e: React.FormEvent) => {
     e.preventDefault();
-    const updatedUser: UserProfile = {
-      ...user,
-      vehicleInfo: { make, model, year }
-    };
-    await saveUserProfile(updatedUser);
-    setSavedSuccess(true);
-    setTimeout(() => setSavedSuccess(false), 2000);
+    try {
+      const updatedUser: UserProfile = {
+        ...user,
+        vehicleInfo: { make, model, year }
+      };
+      await saveUserProfile(updatedUser);
+      setSavedSuccess(true);
+      toast.success('Vehicle Updated', 'Your garage vehicle build details were saved.');
+      setTimeout(() => setSavedSuccess(false), 2000);
+    } catch (err) {
+      toast.error('Save Failed', 'Unable to update vehicle details.');
+    }
   };
 
   return (
@@ -276,6 +288,45 @@ export const CustomerDashboard: React.FC<CustomerDashboardProps> = ({
                                 <span>Build is en route to your garage</span>
                               </div>
                             )}
+                          </div>
+
+                          {/* Payment Details Box for Customer */}
+                          <div className="p-3 bg-zinc-900/60 rounded-xl border border-zinc-800/80 flex flex-wrap items-center justify-between gap-3 text-xs font-mono">
+                            <div className="flex items-center gap-2">
+                              <span className="text-zinc-500 uppercase text-[11px]">Payment:</span>
+                              <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${
+                                o.paymentMethod === 'gcash' ? 'bg-blue-950/80 border border-blue-600 text-blue-300' :
+                                o.paymentMethod === 'paymaya' ? 'bg-emerald-950/80 border border-emerald-600 text-emerald-300' :
+                                o.paymentMethod === 'bank_transfer' ? 'bg-purple-950/80 border border-purple-600 text-purple-300' :
+                                'bg-amber-950/80 border border-amber-600 text-amber-300'
+                              }`}>
+                                {o.paymentMethod === 'gcash' ? 'GCash' :
+                                 o.paymentMethod === 'paymaya' ? 'Maya' :
+                                 o.paymentMethod === 'bank_transfer' ? 'Bank Transfer' : 'Cash on Delivery'}
+                              </span>
+
+                              {o.paymentReference && (
+                                <span className="text-zinc-400 text-[11px]">
+                                  Ref: <strong className="text-zinc-200">{o.paymentReference}</strong>
+                                </span>
+                              )}
+                            </div>
+
+                            <div className="flex items-center gap-1.5">
+                              <span className="text-zinc-500 uppercase text-[11px]">Verification:</span>
+                              <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${
+                                o.paymentStatus === 'verified' || o.paymentStatus === 'paid'
+                                  ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
+                                  : o.paymentStatus === 'pending_verification'
+                                  ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30'
+                                  : 'bg-zinc-800 text-zinc-400'
+                              }`}>
+                                {o.paymentStatus === 'verified' ? '✓ Payment Verified' :
+                                 o.paymentStatus === 'paid' ? '✓ Paid' :
+                                 o.paymentStatus === 'pending_verification' ? '⏳ Verification in Progress' :
+                                 o.paymentStatus === 'failed' ? '✗ Invalid Reference' : 'Unpaid (COD)'}
+                              </span>
+                            </div>
                           </div>
                         </div>
                       </div>

@@ -27,7 +27,7 @@ export const ServicesSection: React.FC<ServicesSectionProps> = ({ services, site
     return (
       <>
         <span className="brand-line1-text">{line1}</span>{' '}
-        <span className="text-[#e5a823] drop-shadow-[0_1px_2px_rgba(0,0,0,0.4)]">{line2}</span>
+        <span className="brand-line2-text">{line2}</span>
       </>
     );
   };

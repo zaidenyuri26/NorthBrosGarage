@@ -8,6 +8,7 @@ import {
 import { auth, googleProvider } from '../lib/firebase';
 import { saveUserProfile, getUserProfile } from '../lib/dbService';
 import { UserProfile, UserRole } from '../types';
+import { useToast } from '../context/ToastContext';
 
 interface AuthModalProps {
   isOpen: boolean;
@@ -16,6 +17,7 @@ interface AuthModalProps {
 }
 
 export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onLoginSuccess }) => {
+  const { toast } = useToast();
   const [isRegister, setIsRegister] = useState(false);
   const [role, setRole] = useState<UserRole>('customer');
   const [email, setEmail] = useState('');
@@ -35,6 +37,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onLoginSu
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(email)) {
       setError('Please enter a valid email address.');
+      toast.warning('Invalid Email', 'Please enter a valid email address.');
       setLoading(false);
       return;
     }
@@ -53,6 +56,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onLoginSu
           createdAt: new Date().toISOString()
         };
         await saveUserProfile(profile);
+        toast.authSuccess({ displayName: profile.displayName, role: profile.role, isRegister: true });
         onLoginSuccess(profile);
       } else {
         const cred = await signInWithEmailAndPassword(auth, email, password);
@@ -72,6 +76,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onLoginSu
            }
         }
         await saveUserProfile(profile);
+        toast.authSuccess({ displayName: profile.displayName, role: profile.role, isRegister: false });
         onLoginSuccess(profile);
       }
       onClose();
@@ -87,6 +92,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onLoginSu
         msg = 'Password should be at least 6 characters.';
       }
       setError(msg);
+      toast.error('Authentication Failed', msg);
     } finally {
       setLoading(false);
     }

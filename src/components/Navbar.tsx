@@ -80,21 +80,28 @@ export const Navbar: React.FC<NavbarProps> = ({
             />
           </button>
 
-          {/* Search Bar - Desktop */}
+          {/* Single Unified Global Search Bar - Desktop */}
           <div className="hidden md:flex flex-1 max-w-md mx-4">
             <div className="relative w-full text-left">
               <input
                 type="text"
                 placeholder="Search HKS exhaust, RAYS wheels, brake kits..."
                 value={searchQuery || ''}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full bg-zinc-900/90 border border-zinc-800 focus:border-amber-500 rounded-full py-2 pl-10 pr-4 text-base text-zinc-100 placeholder-zinc-500 focus:outline-none focus:ring-1 focus:ring-amber-500/50 transition-all font-mono"
+                onChange={(e) => {
+                  setSearchQuery(e.target.value);
+                  if (e.target.value.trim().length > 0 && activeSection !== 'parts') {
+                    setActiveSection('parts');
+                    const el = document.getElementById('performance-parts');
+                    if (el) el.scrollIntoView({ behavior: 'smooth' });
+                  }
+                }}
+                className="w-full bg-zinc-900/90 border border-zinc-700 hover:border-zinc-600 focus:border-amber-500 rounded-full py-2 pl-10 pr-8 text-sm text-zinc-100 placeholder-zinc-400 focus:outline-none focus:ring-2 focus:ring-amber-500/30 transition-all font-mono"
               />
-              <Search className="w-4 h-4 text-zinc-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+              <Search className="w-4 h-4 text-amber-500/80 absolute left-3.5 top-1/2 -translate-y-1/2" />
               {searchQuery && (
                 <button
                   onClick={() => setSearchQuery('')}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-zinc-300 text-sm bg-zinc-800 rounded-full w-4 h-4 flex items-center justify-center"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-white text-xs bg-zinc-800 hover:bg-zinc-700 rounded-full w-4 h-4 flex items-center justify-center transition-colors"
                 >
                   ×
                 </button>
@@ -194,17 +201,32 @@ export const Navbar: React.FC<NavbarProps> = ({
           </div>
         </div>
 
-        {/* Search Bar - Mobile */}
-        <div className="md:hidden pb-4 text-left">
+        {/* Single Unified Global Search Bar - Mobile */}
+        <div className="md:hidden pb-3 text-left">
           <div className="relative w-full">
             <input
               type="text"
               placeholder="Search parts, brands (HKS, Spoon)..."
               value={searchQuery || ''}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full bg-zinc-900 border border-zinc-800 rounded-lg py-2 pl-9 pr-4 text-sm text-zinc-100 placeholder-zinc-500 focus:outline-none focus:border-amber-500"
+              onChange={(e) => {
+                setSearchQuery(e.target.value);
+                if (e.target.value.trim().length > 0 && activeSection !== 'parts') {
+                  setActiveSection('parts');
+                  const el = document.getElementById('performance-parts');
+                  if (el) el.scrollIntoView({ behavior: 'smooth' });
+                }
+              }}
+              className="w-full bg-zinc-900/90 border border-zinc-700 focus:border-amber-500 rounded-xl py-2 pl-9 pr-8 text-sm text-zinc-100 placeholder-zinc-400 focus:outline-none font-mono"
             />
-            <Search className="w-4 h-4 text-zinc-400 absolute left-3 top-1/2 -translate-y-1/2" />
+            <Search className="w-4 h-4 text-amber-500/80 absolute left-3 top-1/2 -translate-y-1/2" />
+            {searchQuery && (
+              <button
+                onClick={() => setSearchQuery('')}
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-white text-xs bg-zinc-800 rounded-full w-4 h-4 flex items-center justify-center"
+              >
+                ×
+              </button>
+            )}
           </div>
         </div>
       </div>

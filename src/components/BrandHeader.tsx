@@ -65,7 +65,7 @@ export const BrandHeader: React.FC<BrandHeaderProps> = ({
       return (
         <span className="inline-flex items-baseline font-black italic tracking-[-0.04em] uppercase font-sans">
           <span className="brand-line1-text">North</span>
-          <span className="text-[#e5a823] drop-shadow-[0_1px_2px_rgba(0,0,0,0.4)] ml-0.5">Bros</span>
+          <span className="brand-line2-text ml-0.5">Bros</span>
         </span>
       );
     } else if (lower.includes('north')) {
@@ -74,7 +74,7 @@ export const BrandHeader: React.FC<BrandHeaderProps> = ({
         <span className="inline-flex items-baseline font-black italic tracking-[-0.04em] uppercase font-sans">
           {parts[0] && <span className="brand-line1-text">{parts[0]}</span>}
           <span className="brand-line1-text">North</span>
-          {parts[1] && <span className="text-[#e5a823]">{parts[1]}</span>}
+          {parts[1] && <span className="brand-line2-text">{parts[1]}</span>}
         </span>
       );
     } else if (lower.includes('bros')) {
@@ -82,7 +82,7 @@ export const BrandHeader: React.FC<BrandHeaderProps> = ({
       return (
         <span className="inline-flex items-baseline font-black italic tracking-[-0.04em] uppercase font-sans">
           <span className="brand-line1-text">{parts[0]}</span>
-          <span className="text-[#e5a823] ml-0.5">Bros</span>
+          <span className="brand-line2-text ml-0.5">Bros</span>
           {parts[1] && <span className="brand-line1-text">{parts[1]}</span>}
         </span>
       );
@@ -133,7 +133,7 @@ export const NorthBrosAngledEmblem: React.FC<{
         <div className="flex flex-col items-center justify-center">
           <div className="flex items-baseline font-black italic tracking-tighter uppercase leading-none">
             <span className="brand-line1-text text-base sm:text-xl md:text-2xl">NORTH</span>
-            <span className="text-[#e5a823] text-base sm:text-xl md:text-2xl ml-0.5">BROS</span>
+            <span className="brand-line2-text text-base sm:text-xl md:text-2xl ml-0.5">BROS</span>
           </div>
           <div className="flex items-center gap-1.5 w-full mt-1">
             <div className="h-[1.5px] flex-1 bg-[#e5a823]" />

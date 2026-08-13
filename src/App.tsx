@@ -15,6 +15,7 @@ import {
   validateFirestoreConnection
 } from './lib/dbService';
 import { Product, ServiceCategory, CartItem, UserProfile, SiteSettings, GalleryBuild } from './types';
+import { useToast } from './context/ToastContext';
 
 import { Navbar } from './components/Navbar';
 import { Hero } from './components/Hero';
@@ -32,6 +33,8 @@ import { CustomerDashboard } from './components/CustomerDashboard';
 import { Footer } from './components/Footer';
 
 export default function App() {
+  const { toast } = useToast();
+
   // Authentication & Profile State
   const [user, setUser] = useState<UserProfile | null>(null);
 
@@ -134,8 +137,10 @@ export default function App() {
   const handleLogout = async () => {
     try {
       await firebaseSignOut(auth);
+      toast.authLogout();
     } catch (err) {
       console.error('Sign out error:', err);
+      toast.error('Sign Out Failed', 'An error occurred while signing out.');
     }
     setUser(null);
     setIsAdminDashboardOpen(false);
@@ -145,12 +150,17 @@ export default function App() {
   // Cart Functions
   const handleAddToCart = (product: Product) => {
     if (!user) {
+      toast.info('Sign In Required', 'Please sign in to add performance parts to your garage cart.');
       setIsAuthOpen(true);
       return;
     }
+    const existing = cart.find((item) => item.product.id === product.id);
+    const newQuantity = existing ? existing.quantity + 1 : 1;
+    toast.cartAdded(product, newQuantity, () => setIsCartOpen(true));
+
     setCart((prevCart) => {
-      const existing = prevCart.find((item) => item.product.id === product.id);
-      if (existing) {
+      const exists = prevCart.find((item) => item.product.id === product.id);
+      if (exists) {
         return prevCart.map((item) =>
           item.product.id === product.id
             ? { ...item, quantity: item.quantity + 1 }
@@ -174,10 +184,17 @@ export default function App() {
   };
 
   const handleRemoveFromCart = (productId: string) => {
+    const target = cart.find((item) => item.product.id === productId);
+    if (target) {
+      toast.cartRemoved(target.product.name, target.product.brand);
+    }
     setCart((prevCart) => prevCart.filter((item) => item.product.id !== productId));
   };
 
   const handleClearCart = () => {
+    if (cart.length > 0) {
+      toast.cartCleared();
+    }
     setCart([]);
   };
 
@@ -221,7 +238,16 @@ export default function App() {
       <main>
         {/* Hero Section */}
         <Hero
-          onExploreParts={() => handleSelectCategoryPill('All')}
+          onExploreParts={() => {
+            setActiveSection('parts');
+            const el = document.getElementById('performance-parts');
+            if (el) el.scrollIntoView({ behavior: 'smooth' });
+          }}
+          onExploreServices={() => {
+            setActiveSection('services');
+            const el = document.getElementById('services-section');
+            if (el) el.scrollIntoView({ behavior: 'smooth' });
+          }}
           searchQuery={searchQuery}
           setSearchQuery={setSearchQuery}
           siteSettings={siteSettings}
@@ -336,12 +362,15 @@ export default function App() {
                 disabled={isDeletingProd}
                 onClick={async () => {
                   if (!deletingProduct) return;
+                  const prodName = deletingProduct.name;
                   setIsDeletingProd(true);
                   try {
                     await deleteProduct(deletingProduct.id);
+                    toast.deleted('Performance Part', prodName);
                     await handleRefreshData();
                   } catch (err) {
                     console.error('Error deleting product from Firestore:', err);
+                    toast.error('Deletion Failed', 'Unable to delete product from database.');
                   } finally {
                     setIsDeletingProd(false);
                     setDeletingProduct(null);
@@ -380,6 +409,7 @@ export default function App() {
         onRemoveItem={handleRemoveFromCart}
         onClearCart={handleClearCart}
         user={user}
+        siteSettings={siteSettings}
       />
 
       {/* Auth Modal */}

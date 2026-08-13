@@ -26,7 +26,12 @@ import {
   Camera,
   Video,
   Link,
-  Car
+  Car,
+  QrCode,
+  Smartphone,
+  Copy,
+  ExternalLink,
+  CreditCard
 } from 'lucide-react';
 import {
   Product,
@@ -36,11 +41,13 @@ import {
   UserProfile,
   BookingStatus,
   OrderStatus,
+  PaymentStatusType,
   SiteSettings,
   GalleryBuild,
   PRODUCT_CATEGORIES,
   PRODUCT_BRANDS
 } from '../types';
+import { useToast } from '../context/ToastContext';
 import {
   fetchProducts,
   addProduct,
@@ -55,6 +62,7 @@ import {
   deleteBooking,
   fetchOrders,
   updateOrderStatus,
+  updateOrderPaymentStatus,
   deleteOrder,
   fetchAllUsers,
   updateUserRole,
@@ -82,7 +90,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   builds,
   onRefreshData,
 }) => {
-  const [activeTab, setActiveTab] = useState<'overview' | 'settings' | 'products' | 'services' | 'orders' | 'users' | 'builds'>('settings');
+  const { toast } = useToast();
+  const [activeTab, setActiveTab] = useState<'overview' | 'settings' | 'payments' | 'products' | 'services' | 'bookings' | 'orders' | 'users' | 'builds'>('settings');
   
   // State for data
   const [bookings, setBookings] = useState<ServiceBooking[]>([]);
@@ -147,6 +156,10 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const [servImage, setServImage] = useState('');
   const [servFeatures, setServFeatures] = useState('');
 
+  // Payment Verification & Receipt Viewer
+  const [viewingReceiptOrder, setViewingReceiptOrder] = useState<Order | null>(null);
+  const [verifyingOrderId, setVerifyingOrderId] = useState<string | null>(null);
+
   useEffect(() => {
     loadAllAdminData();
   }, []);
@@ -201,11 +214,58 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         socialFacebook: sSettings?.socialFacebook || DEFAULT_SITE_SETTINGS.socialFacebook || '',
         socialTwitter: sSettings?.socialTwitter || DEFAULT_SITE_SETTINGS.socialTwitter || '',
         copyrightText: sSettings?.copyrightText || DEFAULT_SITE_SETTINGS.copyrightText || '',
+
+        // Payment Gateways
+        paymentGcashEnabled: sSettings?.paymentGcashEnabled ?? true,
+        paymentGcashName: sSettings?.paymentGcashName ?? '',
+        paymentGcashNumber: sSettings?.paymentGcashNumber ?? '',
+        paymentGcashQr: sSettings?.paymentGcashQr ?? '',
+        paymentGcashInstructions: sSettings?.paymentGcashInstructions ?? '',
+
+        paymentPaymayaEnabled: sSettings?.paymentPaymayaEnabled ?? true,
+        paymentPaymayaName: sSettings?.paymentPaymayaName ?? '',
+        paymentPaymayaNumber: sSettings?.paymentPaymayaNumber ?? '',
+        paymentPaymayaQr: sSettings?.paymentPaymayaQr ?? '',
+        paymentPaymayaInstructions: sSettings?.paymentPaymayaInstructions ?? '',
+
+        paymentCodEnabled: sSettings?.paymentCodEnabled ?? true,
+        paymentBankEnabled: sSettings?.paymentBankEnabled ?? true,
+        paymentBankName: sSettings?.paymentBankName ?? '',
+        paymentBankAccountName: sSettings?.paymentBankAccountName ?? '',
+        paymentBankAccountNumber: sSettings?.paymentBankAccountNumber ?? '',
+        paymentBankInstructions: sSettings?.paymentBankInstructions ?? ''
       });
     } catch (err) {
       console.error('Error loading admin data:', err);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleVerifyPayment = async (orderId: string) => {
+    setVerifyingOrderId(orderId);
+    try {
+      await updateOrderPaymentStatus(orderId, 'verified');
+      setOrders(prev => prev.map(o => o.id === orderId ? { ...o, paymentStatus: 'verified', status: 'accepted' } : o));
+      toast.success('Payment Verified & Confirmed!', `Order #${orderId.slice(0, 8).toUpperCase()} has been marked as verified and accepted.`);
+      onRefreshData();
+    } catch (err: any) {
+      console.error('Failed to verify payment:', err);
+      toast.error('Payment Verification Failed', err.message || 'Unable to update payment status.');
+    } finally {
+      setVerifyingOrderId(null);
+    }
+  };
+
+  const handleUpdatePaymentStatus = async (orderId: string, paymentStatus: PaymentStatusType) => {
+    try {
+      await updateOrderPaymentStatus(orderId, paymentStatus);
+      setOrders(prev => prev.map(o => o.id === orderId ? { ...o, paymentStatus } : o));
+      toast.success('Payment Status Updated', `Order payment status changed to ${paymentStatus.replace('_', ' ')}.`);
+      onRefreshData();
+    } catch (err: any) {
+      console.error('Failed to update payment status:', err);
+      toast.error('Failed to update payment status', err.message);
     }
   };
 
@@ -388,6 +448,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const confirmDeleteAction = async () => {
     if (!deletingItem) return;
     setIsDeleting(true);
+    const itemToDelete = { ...deletingItem };
     try {
       if (deletingItem.type === 'product') {
         await deleteProduct(deletingItem.id);
@@ -405,11 +466,24 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       } else if (deletingItem.type === 'build') {
         await deleteBuild(deletingItem.id);
       }
-      setDeleteSuccessMsg(`Successfully deleted ${deletingItem.name}`);
+      
+      const typeLabels: Record<string, string> = {
+        product: 'Product',
+        service: 'Workshop Service',
+        order: 'Customer Order',
+        booking: 'Service Booking',
+        user: 'User Profile',
+        build: 'JDM Build',
+      };
+      const label = typeLabels[itemToDelete.type] || 'Item';
+      toast.deleted(label, itemToDelete.name);
+
+      setDeleteSuccessMsg(`Successfully deleted ${itemToDelete.name}`);
       setTimeout(() => setDeleteSuccessMsg(null), 3500);
       onRefreshData();
     } catch (err) {
       console.error('Failed to delete item from Firestore:', err);
+      toast.error('Deletion Failed', `Could not delete ${itemToDelete.name} from Firestore.`);
     } finally {
       setIsDeleting(false);
       setDeletingItem(null);
@@ -526,6 +600,17 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         {/* Navigation Tabs */}
         <div className="flex items-center gap-2 border-b border-zinc-800 pb-2 overflow-x-auto no-scrollbar font-mono text-sm font-bold">
           <button
+            onClick={() => setActiveTab('payments')}
+            id="admin-tab-payments"
+            className={`px-4 py-2 rounded-xl flex items-center gap-2 transition-all ${
+              activeTab === 'payments' ? 'bg-amber-500 text-zinc-950 font-extrabold' : 'text-blue-400 hover:text-white bg-zinc-900 border border-blue-500/30'
+            }`}
+          >
+            <QrCode className="w-4 h-4 text-blue-400" />
+            <span>Payment Gateways (GCash / Maya)</span>
+          </button>
+
+          <button
             onClick={() => setActiveTab('settings')}
             id="admin-tab-settings"
             className={`px-4 py-2 rounded-xl flex items-center gap-2 transition-all ${
@@ -616,6 +701,370 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
             <span>Build Chronicles ({builds.length})</span>
           </button>
         </div>
+
+        {/* TAB: PAYMENT GATEWAYS (GCASH & MAYA) */}
+        {activeTab === 'payments' && (
+          <form onSubmit={handleSaveSiteSettings} className="space-y-6">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-zinc-900 border border-blue-500/30 p-6 rounded-2xl shadow-xl">
+              <div>
+                <div className="inline-flex items-center gap-2 text-blue-400 font-mono text-xs uppercase font-bold mb-1">
+                  <QrCode className="w-4 h-4" />
+                  <span>DIRECT E-WALLET & QR PH PAYMENT GATEWAYS</span>
+                </div>
+                <h2 className="text-2xl font-mono font-black text-white italic uppercase">
+                  GCASH, MAYA & BANK RECEIVING ACCOUNTS
+                </h2>
+                <p className="text-xs text-zinc-400 mt-1">
+                  Set your registered GCash/Maya mobile numbers, account names, and QR Ph code images. Customers will scan or transfer to these details during checkout.
+                </p>
+              </div>
+
+              <button
+                type="submit"
+                disabled={savingSettings}
+                className="flex items-center justify-center gap-2 bg-gradient-to-r from-blue-600 to-emerald-600 hover:from-blue-500 hover:to-emerald-500 text-white font-black px-6 py-3.5 rounded-xl text-sm uppercase tracking-wider shadow-xl shadow-blue-900/30 transition-all active:scale-95 shrink-0"
+              >
+                {savingSettings ? (
+                  <>
+                    <RefreshCw className="w-4 h-4 animate-spin" />
+                    <span>Saving Gateways...</span>
+                  </>
+                ) : settingsSavedSuccess ? (
+                  <>
+                    <Check className="w-4 h-4" />
+                    <span>Gateways Saved Live!</span>
+                  </>
+                ) : (
+                  <>
+                    <Save className="w-4 h-4" />
+                    <span>Save Payment Settings</span>
+                  </>
+                )}
+              </button>
+            </div>
+
+            {/* Quick Interactive Status Bar & Toggles */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 font-mono text-xs">
+              <button
+                type="button"
+                onClick={() => setSiteSettingsForm({ ...siteSettingsForm, paymentGcashEnabled: !(siteSettingsForm.paymentGcashEnabled ?? true) })}
+                className={`p-3.5 rounded-xl border flex items-center justify-between transition-all cursor-pointer text-left ${
+                  siteSettingsForm.paymentGcashEnabled ?? true ? 'bg-blue-950/40 border-blue-500/60 text-blue-300 shadow-lg shadow-blue-950/30' : 'bg-zinc-950 border-zinc-800 text-zinc-500 hover:border-zinc-700'
+                }`}
+              >
+                <div className="flex items-center gap-2">
+                  <div className="w-6 h-6 rounded bg-blue-600 text-white font-bold flex items-center justify-center text-[10px]">G</div>
+                  <span className="font-bold">GCash</span>
+                </div>
+                <div className={`px-2 py-1 rounded-full text-[10px] uppercase font-bold flex items-center gap-1 ${
+                  siteSettingsForm.paymentGcashEnabled ?? true ? 'bg-blue-600 text-white' : 'bg-zinc-800 text-zinc-400'
+                }`}>
+                  <span>{siteSettingsForm.paymentGcashEnabled ?? true ? 'ON' : 'OFF'}</span>
+                </div>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setSiteSettingsForm({ ...siteSettingsForm, paymentPaymayaEnabled: !(siteSettingsForm.paymentPaymayaEnabled ?? true) })}
+                className={`p-3.5 rounded-xl border flex items-center justify-between transition-all cursor-pointer text-left ${
+                  siteSettingsForm.paymentPaymayaEnabled ?? true ? 'bg-emerald-950/40 border-emerald-500/60 text-emerald-300 shadow-lg shadow-emerald-950/30' : 'bg-zinc-950 border-zinc-800 text-zinc-500 hover:border-zinc-700'
+                }`}
+              >
+                <div className="flex items-center gap-2">
+                  <div className="w-6 h-6 rounded bg-emerald-600 text-white font-bold flex items-center justify-center text-[10px]">M</div>
+                  <span className="font-bold">Maya</span>
+                </div>
+                <div className={`px-2 py-1 rounded-full text-[10px] uppercase font-bold flex items-center gap-1 ${
+                  siteSettingsForm.paymentPaymayaEnabled ?? true ? 'bg-emerald-600 text-white' : 'bg-zinc-800 text-zinc-400'
+                }`}>
+                  <span>{siteSettingsForm.paymentPaymayaEnabled ?? true ? 'ON' : 'OFF'}</span>
+                </div>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setSiteSettingsForm({ ...siteSettingsForm, paymentBankEnabled: !(siteSettingsForm.paymentBankEnabled ?? true) })}
+                className={`p-3.5 rounded-xl border flex items-center justify-between transition-all cursor-pointer text-left ${
+                  siteSettingsForm.paymentBankEnabled ?? true ? 'bg-purple-950/40 border-purple-500/60 text-purple-300 shadow-lg shadow-purple-950/30' : 'bg-zinc-950 border-zinc-800 text-zinc-500 hover:border-zinc-700'
+                }`}
+              >
+                <div className="flex items-center gap-2">
+                  <CreditCard className="w-4 h-4 text-purple-400" />
+                  <span className="font-bold">Bank Transfer</span>
+                </div>
+                <div className={`px-2 py-1 rounded-full text-[10px] uppercase font-bold flex items-center gap-1 ${
+                  siteSettingsForm.paymentBankEnabled ?? true ? 'bg-purple-600 text-white' : 'bg-zinc-800 text-zinc-400'
+                }`}>
+                  <span>{siteSettingsForm.paymentBankEnabled ?? true ? 'ON' : 'OFF'}</span>
+                </div>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setSiteSettingsForm({ ...siteSettingsForm, paymentCodEnabled: !(siteSettingsForm.paymentCodEnabled ?? true) })}
+                className={`p-3.5 rounded-xl border flex items-center justify-between transition-all cursor-pointer text-left ${
+                  siteSettingsForm.paymentCodEnabled ?? true ? 'bg-amber-950/40 border-amber-500/60 text-amber-300 shadow-lg shadow-amber-950/30' : 'bg-zinc-950 border-zinc-800 text-zinc-500 hover:border-zinc-700'
+                }`}
+              >
+                <div className="flex items-center gap-2">
+                  <ShoppingBag className="w-4 h-4 text-amber-400" />
+                  <span className="font-bold">COD</span>
+                </div>
+                <div className={`px-2 py-1 rounded-full text-[10px] uppercase font-bold flex items-center gap-1 ${
+                  siteSettingsForm.paymentCodEnabled ?? true ? 'bg-amber-600 text-white' : 'bg-zinc-800 text-zinc-400'
+                }`}>
+                  <span>{siteSettingsForm.paymentCodEnabled ?? true ? 'ON' : 'OFF'}</span>
+                </div>
+              </button>
+            </div>
+
+            {/* GCash Settings Card */}
+            <div className={`bg-zinc-900 border rounded-2xl p-6 space-y-4 shadow-xl transition-all ${
+              siteSettingsForm.paymentGcashEnabled ?? true ? 'border-blue-500/40' : 'border-zinc-800 opacity-60'
+            }`}>
+              <div className="flex items-center justify-between border-b border-zinc-800 pb-3">
+                <div className="flex items-center gap-3">
+                  <div className="w-9 h-9 rounded-xl bg-blue-600 flex items-center justify-center text-white font-black text-sm shadow-lg shadow-blue-600/30">
+                    G
+                  </div>
+                  <div>
+                    <h3 className="font-mono font-bold text-white text-base uppercase">GCash Account Gateway</h3>
+                    <span className="text-xs text-blue-400 font-mono">0% Merchant Fee Direct Mobile E-Wallet</span>
+                  </div>
+                </div>
+
+                <label className="flex items-center gap-2 cursor-pointer font-mono text-xs text-zinc-300 bg-zinc-950 px-4 py-2 rounded-xl border border-blue-500/30 hover:border-blue-500 transition-all select-none">
+                  <input
+                    type="checkbox"
+                    checked={siteSettingsForm.paymentGcashEnabled ?? true}
+                    onChange={(e) => setSiteSettingsForm({ ...siteSettingsForm, paymentGcashEnabled: e.target.checked })}
+                    className="w-4 h-4 accent-blue-500 rounded"
+                  />
+                  <span className="font-bold text-blue-300">
+                    {siteSettingsForm.paymentGcashEnabled ?? true ? '✓ GCash Enabled' : 'GCash Disabled'}
+                  </span>
+                </label>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-5 text-sm">
+                <div>
+                  <label className="font-mono text-zinc-400 text-xs block mb-1">GCash Registered Mobile Number</label>
+                  <input
+                    type="text"
+                    value={siteSettingsForm.paymentGcashNumber || ''}
+                    onChange={(e) => setSiteSettingsForm({ ...siteSettingsForm, paymentGcashNumber: e.target.value })}
+                    placeholder="e.g. 0917 888 6789"
+                    className="w-full bg-zinc-950 border border-zinc-800 rounded-xl p-3 text-amber-400 font-mono font-bold text-base focus:border-blue-500 outline-none"
+                  />
+                  <p className="text-[11px] text-zinc-500 mt-1">Displayed with a 1-click COPY button for customers during checkout.</p>
+                </div>
+
+                <div>
+                  <label className="font-mono text-zinc-400 text-xs block mb-1">GCash Account Holder Name</label>
+                  <input
+                    type="text"
+                    value={siteSettingsForm.paymentGcashName || ''}
+                    onChange={(e) => setSiteSettingsForm({ ...siteSettingsForm, paymentGcashName: e.target.value })}
+                    placeholder="e.g. NorthBros Performance Garage / Juan Dela Cruz"
+                    className="w-full bg-zinc-950 border border-zinc-800 rounded-xl p-3 text-white font-mono focus:border-blue-500 outline-none"
+                  />
+                  <p className="text-[11px] text-zinc-500 mt-1">Verified name shown inside GCash app upon sending payment.</p>
+                </div>
+
+                <div className="md:col-span-2 space-y-2">
+                  <label className="font-mono text-zinc-400 text-xs block">GCash QR Ph Code Image (Upload or Paste Link)</label>
+                  <ImageInput
+                    label="GCash QR Code Image"
+                    value={siteSettingsForm.paymentGcashQr || ''}
+                    onChange={(val) => setSiteSettingsForm({ ...siteSettingsForm, paymentGcashQr: val })}
+                  />
+                </div>
+
+                <div className="md:col-span-2">
+                  <label className="font-mono text-zinc-400 text-xs block mb-1">GCash Checkout Instructions</label>
+                  <textarea
+                    rows={2}
+                    value={siteSettingsForm.paymentGcashInstructions || ''}
+                    onChange={(e) => setSiteSettingsForm({ ...siteSettingsForm, paymentGcashInstructions: e.target.value })}
+                    placeholder="Open your GCash app, tap Send Money or Scan QR, send exact amount, then enter the 13-digit Reference Number."
+                    className="w-full bg-zinc-950 border border-zinc-800 rounded-xl p-3 text-zinc-300 text-xs focus:border-blue-500 outline-none"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Maya Settings Card */}
+            <div className={`bg-zinc-900 border rounded-2xl p-6 space-y-4 shadow-xl transition-all ${
+              siteSettingsForm.paymentPaymayaEnabled ?? true ? 'border-emerald-500/40' : 'border-zinc-800 opacity-60'
+            }`}>
+              <div className="flex items-center justify-between border-b border-zinc-800 pb-3">
+                <div className="flex items-center gap-3">
+                  <div className="w-9 h-9 rounded-xl bg-emerald-600 flex items-center justify-center text-white font-black text-sm shadow-lg shadow-emerald-600/30">
+                    M
+                  </div>
+                  <div>
+                    <h3 className="font-mono font-bold text-white text-base uppercase">Maya (PayMaya) Gateway</h3>
+                    <span className="text-xs text-emerald-400 font-mono">Instant QR Ph Merchant Transfer</span>
+                  </div>
+                </div>
+
+                <label className="flex items-center gap-2 cursor-pointer font-mono text-xs text-zinc-300 bg-zinc-950 px-4 py-2 rounded-xl border border-emerald-500/30 hover:border-emerald-500 transition-all select-none">
+                  <input
+                    type="checkbox"
+                    checked={siteSettingsForm.paymentPaymayaEnabled ?? true}
+                    onChange={(e) => setSiteSettingsForm({ ...siteSettingsForm, paymentPaymayaEnabled: e.target.checked })}
+                    className="w-4 h-4 accent-emerald-500 rounded"
+                  />
+                  <span className="font-bold text-emerald-300">
+                    {siteSettingsForm.paymentPaymayaEnabled ?? true ? '✓ Maya Enabled' : 'Maya Disabled'}
+                  </span>
+                </label>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-5 text-sm">
+                <div>
+                  <label className="font-mono text-zinc-400 text-xs block mb-1">Maya Registered Mobile Number</label>
+                  <input
+                    type="text"
+                    value={siteSettingsForm.paymentPaymayaNumber || ''}
+                    onChange={(e) => setSiteSettingsForm({ ...siteSettingsForm, paymentPaymayaNumber: e.target.value })}
+                    placeholder="e.g. 0918 888 6789"
+                    className="w-full bg-zinc-950 border border-zinc-800 rounded-xl p-3 text-emerald-400 font-mono font-bold text-base focus:border-emerald-500 outline-none"
+                  />
+                  <p className="text-[11px] text-zinc-500 mt-1">Displayed with a 1-click COPY button for customers during checkout.</p>
+                </div>
+
+                <div>
+                  <label className="font-mono text-zinc-400 text-xs block mb-1">Maya Account Holder Name</label>
+                  <input
+                    type="text"
+                    value={siteSettingsForm.paymentPaymayaName || ''}
+                    onChange={(e) => setSiteSettingsForm({ ...siteSettingsForm, paymentPaymayaName: e.target.value })}
+                    placeholder="e.g. NorthBros Performance Garage"
+                    className="w-full bg-zinc-950 border border-zinc-800 rounded-xl p-3 text-white font-mono focus:border-emerald-500 outline-none"
+                  />
+                </div>
+
+                <div className="md:col-span-2 space-y-2">
+                  <label className="font-mono text-zinc-400 text-xs block">Maya QR Ph Code Image (Upload or Paste Link)</label>
+                  <ImageInput
+                    label="Maya QR Code Image"
+                    value={siteSettingsForm.paymentPaymayaQr || ''}
+                    onChange={(val) => setSiteSettingsForm({ ...siteSettingsForm, paymentPaymayaQr: val })}
+                  />
+                </div>
+
+                <div className="md:col-span-2">
+                  <label className="font-mono text-zinc-400 text-xs block mb-1">Maya Checkout Instructions</label>
+                  <textarea
+                    rows={2}
+                    value={siteSettingsForm.paymentPaymayaInstructions || ''}
+                    onChange={(e) => setSiteSettingsForm({ ...siteSettingsForm, paymentPaymayaInstructions: e.target.value })}
+                    placeholder="Open your Maya app, tap Scan To Pay or Send Money, send exact amount, then enter the Transaction Reference Number."
+                    className="w-full bg-zinc-950 border border-zinc-800 rounded-xl p-3 text-zinc-300 text-xs focus:border-emerald-500 outline-none"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Bank Transfer & COD Grid */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+              <div className={`bg-zinc-900 border rounded-2xl p-6 space-y-4 shadow-xl transition-all ${
+                siteSettingsForm.paymentBankEnabled ?? true ? 'border-purple-500/40' : 'border-zinc-800 opacity-60'
+              }`}>
+                <div className="flex items-center justify-between border-b border-zinc-800 pb-3">
+                  <h3 className="font-mono font-bold text-purple-400 text-sm uppercase flex items-center gap-2">
+                    <CreditCard className="w-4 h-4" /> Direct Bank Transfer
+                  </h3>
+                  <label className="flex items-center gap-2 cursor-pointer font-mono text-xs text-zinc-300 bg-zinc-950 px-3 py-1.5 rounded-xl border border-purple-500/30 hover:border-purple-500 transition-all select-none">
+                    <input
+                      type="checkbox"
+                      checked={siteSettingsForm.paymentBankEnabled ?? true}
+                      onChange={(e) => setSiteSettingsForm({ ...siteSettingsForm, paymentBankEnabled: e.target.checked })}
+                      className="w-4 h-4 accent-purple-500 rounded"
+                    />
+                    <span className="font-bold text-purple-300">
+                      {siteSettingsForm.paymentBankEnabled ?? true ? '✓ Enabled' : 'Disabled'}
+                    </span>
+                  </label>
+                </div>
+
+                <div className="space-y-3 text-xs font-mono">
+                  <div>
+                    <label className="text-zinc-400 block mb-1">Bank Name</label>
+                    <input
+                      type="text"
+                      value={siteSettingsForm.paymentBankName || ''}
+                      onChange={(e) => setSiteSettingsForm({ ...siteSettingsForm, paymentBankName: e.target.value })}
+                      placeholder="e.g. BDO / UnionBank / BPI"
+                      className="w-full bg-zinc-950 border border-zinc-800 rounded-xl p-2.5 text-white"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-zinc-400 block mb-1">Account Holder Name</label>
+                    <input
+                      type="text"
+                      value={siteSettingsForm.paymentBankAccountName || ''}
+                      onChange={(e) => setSiteSettingsForm({ ...siteSettingsForm, paymentBankAccountName: e.target.value })}
+                      placeholder="e.g. NorthBros Performance Garage Inc."
+                      className="w-full bg-zinc-950 border border-zinc-800 rounded-xl p-2.5 text-white"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-zinc-400 block mb-1">Account Number</label>
+                    <input
+                      type="text"
+                      value={siteSettingsForm.paymentBankAccountNumber || ''}
+                      onChange={(e) => setSiteSettingsForm({ ...siteSettingsForm, paymentBankAccountNumber: e.target.value })}
+                      placeholder="e.g. 0012 3456 7890"
+                      className="w-full bg-zinc-950 border border-zinc-800 rounded-xl p-2.5 text-purple-300 font-bold"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div className={`bg-zinc-900 border rounded-2xl p-6 space-y-4 shadow-xl transition-all ${
+                siteSettingsForm.paymentCodEnabled ?? true ? 'border-amber-500/40' : 'border-zinc-800 opacity-60'
+              }`}>
+                <div className="flex items-center justify-between border-b border-zinc-800 pb-3">
+                  <h3 className="font-mono font-bold text-amber-400 text-sm uppercase flex items-center gap-2">
+                    <ShoppingBag className="w-4 h-4" /> Cash On Delivery (COD)
+                  </h3>
+                  <label className="flex items-center gap-2 cursor-pointer font-mono text-xs text-zinc-300 bg-zinc-950 px-3 py-1.5 rounded-xl border border-amber-500/30 hover:border-amber-500 transition-all select-none">
+                    <input
+                      type="checkbox"
+                      checked={siteSettingsForm.paymentCodEnabled ?? true}
+                      onChange={(e) => setSiteSettingsForm({ ...siteSettingsForm, paymentCodEnabled: e.target.checked })}
+                      className="w-4 h-4 accent-amber-500 rounded"
+                    />
+                    <span className="font-bold text-amber-300">
+                      {siteSettingsForm.paymentCodEnabled ?? true ? '✓ Enabled' : 'Disabled'}
+                    </span>
+                  </label>
+                </div>
+
+                <p className="text-xs text-zinc-400 leading-relaxed font-mono">
+                  Allow customers to pay in cash upon parcel arrival or workshop pickup. Orders placed with COD will mark payment as pending collection.
+                </p>
+              </div>
+            </div>
+
+            {/* Bottom Floating Save Action Bar */}
+            <div className="sticky bottom-4 z-30 bg-zinc-900/95 backdrop-blur-md border border-blue-500/40 p-4 rounded-2xl flex items-center justify-between shadow-2xl">
+              <span className="font-mono text-xs text-blue-300 font-bold">
+                {settingsSavedSuccess ? '✓ Payment Gateways updated live in Firestore!' : 'Save changes to update GCash / Maya checkout details'}
+              </span>
+
+              <button
+                type="submit"
+                disabled={savingSettings}
+                className="flex items-center gap-2 bg-gradient-to-r from-blue-600 to-emerald-600 hover:from-blue-500 hover:to-emerald-500 text-white font-black px-6 py-2.5 rounded-xl text-xs uppercase tracking-wider shadow-lg shadow-blue-900/40 transition-all active:scale-95"
+              >
+                {savingSettings ? 'Saving...' : 'Save Payment Gateways'}
+              </button>
+            </div>
+          </form>
+        )}
 
         {/* TAB: WEBSITE CUSTOMIZATION (CMS) */}
         {activeTab === 'settings' && (
@@ -1207,6 +1656,247 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
               </div>
             </div>
 
+            {/* SECTION 6: Payment Gateways & E-Wallets (GCash, Maya, Bank Transfer) */}
+            <div className="bg-zinc-900 border border-zinc-800 p-6 rounded-2xl space-y-6">
+              <div>
+                <div className="inline-flex items-center gap-2 text-amber-400 font-mono text-xs uppercase font-bold mb-1">
+                  <QrCode className="w-4 h-4" />
+                  <span>DIRECT QR PH & E-WALLET TRANSFERS</span>
+                </div>
+                <h3 className="text-xl font-mono font-bold text-white uppercase tracking-tight">
+                  6. PAYMENT RECEIVING SETTINGS (GCASH & MAYA)
+                </h3>
+                <p className="text-xs text-zinc-400 mt-1">
+                  Configure the official GCash number, Maya account, and QR Ph images displayed to customers at checkout.
+                </p>
+              </div>
+
+              {/* GCash Settings Card */}
+              <div className="bg-zinc-950 border border-blue-500/30 rounded-2xl p-5 space-y-4">
+                <div className="flex items-center justify-between border-b border-zinc-800 pb-3">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-7 h-7 rounded-lg bg-blue-600 flex items-center justify-center text-white font-black text-xs">
+                      G
+                    </div>
+                    <div>
+                      <h4 className="font-mono font-bold text-white text-sm uppercase">GCash Account Configuration</h4>
+                      <span className="text-[11px] text-zinc-400 font-mono">0% Merchant Fee E-Wallet Transfer</span>
+                    </div>
+                  </div>
+
+                  <label className="flex items-center gap-2 cursor-pointer font-mono text-xs text-zinc-300">
+                    <input
+                      type="checkbox"
+                      checked={siteSettingsForm.paymentGcashEnabled ?? true}
+                      onChange={(e) => setSiteSettingsForm({ ...siteSettingsForm, paymentGcashEnabled: e.target.checked })}
+                      className="w-4 h-4 accent-blue-500 rounded"
+                    />
+                    <span>Enabled</span>
+                  </label>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                  <div>
+                    <label className="font-mono text-zinc-400 text-xs block mb-1">GCash Account Holder Name *</label>
+                    <input
+                      type="text"
+                      value={siteSettingsForm.paymentGcashName || ''}
+                      onChange={(e) => setSiteSettingsForm({ ...siteSettingsForm, paymentGcashName: e.target.value })}
+                      placeholder="e.g. NorthBros Performance Garage / John Doe"
+                      className="w-full bg-zinc-900 border border-zinc-800 rounded-xl p-2.5 text-white font-mono"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="font-mono text-zinc-400 text-xs block mb-1">GCash Registered Mobile Number *</label>
+                    <input
+                      type="text"
+                      value={siteSettingsForm.paymentGcashNumber || ''}
+                      onChange={(e) => setSiteSettingsForm({ ...siteSettingsForm, paymentGcashNumber: e.target.value })}
+                      placeholder="e.g. 0917 888 6789"
+                      className="w-full bg-zinc-900 border border-zinc-800 rounded-xl p-2.5 text-amber-400 font-mono font-bold"
+                    />
+                  </div>
+
+                  <div className="md:col-span-2">
+                    <label className="font-mono text-zinc-400 text-xs block mb-1">GCash QR Ph Code Image URL (or upload below)</label>
+                    <div className="flex gap-3 items-center">
+                      <input
+                        type="text"
+                        value={siteSettingsForm.paymentGcashQr || ''}
+                        onChange={(e) => setSiteSettingsForm({ ...siteSettingsForm, paymentGcashQr: e.target.value })}
+                        placeholder="https://... (or use QR uploader)"
+                        className="flex-1 bg-zinc-900 border border-zinc-800 rounded-xl p-2.5 text-white font-mono text-xs"
+                      />
+                      {siteSettingsForm.paymentGcashQr && (
+                        <img
+                          src={siteSettingsForm.paymentGcashQr}
+                          alt="GCash QR Preview"
+                          className="w-10 h-10 object-contain bg-white rounded-lg p-0.5 border border-zinc-700"
+                        />
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="md:col-span-2">
+                    <label className="font-mono text-zinc-400 text-xs block mb-1">GCash Instructions for Customers</label>
+                    <textarea
+                      rows={2}
+                      value={siteSettingsForm.paymentGcashInstructions || ''}
+                      onChange={(e) => setSiteSettingsForm({ ...siteSettingsForm, paymentGcashInstructions: e.target.value })}
+                      placeholder="Open GCash, scan QR or send to the number below, then enter the Reference Number."
+                      className="w-full bg-zinc-900 border border-zinc-800 rounded-xl p-2.5 text-zinc-300 text-xs"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Maya Settings Card */}
+              <div className="bg-zinc-950 border border-emerald-500/30 rounded-2xl p-5 space-y-4">
+                <div className="flex items-center justify-between border-b border-zinc-800 pb-3">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-7 h-7 rounded-lg bg-emerald-600 flex items-center justify-center text-white font-black text-xs">
+                      M
+                    </div>
+                    <div>
+                      <h4 className="font-mono font-bold text-white text-sm uppercase">Maya (PayMaya) Account Configuration</h4>
+                      <span className="text-[11px] text-zinc-400 font-mono">Instant QR Ph Payment</span>
+                    </div>
+                  </div>
+
+                  <label className="flex items-center gap-2 cursor-pointer font-mono text-xs text-zinc-300">
+                    <input
+                      type="checkbox"
+                      checked={siteSettingsForm.paymentPaymayaEnabled ?? true}
+                      onChange={(e) => setSiteSettingsForm({ ...siteSettingsForm, paymentPaymayaEnabled: e.target.checked })}
+                      className="w-4 h-4 accent-emerald-500 rounded"
+                    />
+                    <span>Enabled</span>
+                  </label>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                  <div>
+                    <label className="font-mono text-zinc-400 text-xs block mb-1">Maya Account Holder Name *</label>
+                    <input
+                      type="text"
+                      value={siteSettingsForm.paymentPaymayaName || ''}
+                      onChange={(e) => setSiteSettingsForm({ ...siteSettingsForm, paymentPaymayaName: e.target.value })}
+                      placeholder="e.g. NorthBros Performance Garage"
+                      className="w-full bg-zinc-900 border border-zinc-800 rounded-xl p-2.5 text-white font-mono"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="font-mono text-zinc-400 text-xs block mb-1">Maya Registered Mobile Number *</label>
+                    <input
+                      type="text"
+                      value={siteSettingsForm.paymentPaymayaNumber || ''}
+                      onChange={(e) => setSiteSettingsForm({ ...siteSettingsForm, paymentPaymayaNumber: e.target.value })}
+                      placeholder="e.g. 0918 888 6789"
+                      className="w-full bg-zinc-900 border border-zinc-800 rounded-xl p-2.5 text-emerald-400 font-mono font-bold"
+                    />
+                  </div>
+
+                  <div className="md:col-span-2">
+                    <label className="font-mono text-zinc-400 text-xs block mb-1">Maya QR Ph Code Image URL</label>
+                    <div className="flex gap-3 items-center">
+                      <input
+                        type="text"
+                        value={siteSettingsForm.paymentPaymayaQr || ''}
+                        onChange={(e) => setSiteSettingsForm({ ...siteSettingsForm, paymentPaymayaQr: e.target.value })}
+                        placeholder="https://... (or QR url)"
+                        className="flex-1 bg-zinc-900 border border-zinc-800 rounded-xl p-2.5 text-white font-mono text-xs"
+                      />
+                      {siteSettingsForm.paymentPaymayaQr && (
+                        <img
+                          src={siteSettingsForm.paymentPaymayaQr}
+                          alt="Maya QR Preview"
+                          className="w-10 h-10 object-contain bg-white rounded-lg p-0.5 border border-zinc-700"
+                        />
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="md:col-span-2">
+                    <label className="font-mono text-zinc-400 text-xs block mb-1">Maya Instructions for Customers</label>
+                    <textarea
+                      rows={2}
+                      value={siteSettingsForm.paymentPaymayaInstructions || ''}
+                      onChange={(e) => setSiteSettingsForm({ ...siteSettingsForm, paymentPaymayaInstructions: e.target.value })}
+                      placeholder="Open Maya, scan QR or send to the number below, then enter the Reference Number."
+                      className="w-full bg-zinc-900 border border-zinc-800 rounded-xl p-2.5 text-zinc-300 text-xs"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Bank Transfer & COD Settings */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="bg-zinc-950 border border-purple-500/30 rounded-2xl p-5 space-y-3">
+                  <div className="flex items-center justify-between border-b border-zinc-800 pb-2">
+                    <h4 className="font-mono font-bold text-purple-400 text-xs uppercase">Bank Transfer (BDO/UnionBank)</h4>
+                    <label className="flex items-center gap-1.5 cursor-pointer font-mono text-xs text-zinc-400">
+                      <input
+                        type="checkbox"
+                        checked={siteSettingsForm.paymentBankEnabled ?? true}
+                        onChange={(e) => setSiteSettingsForm({ ...siteSettingsForm, paymentBankEnabled: e.target.checked })}
+                        className="w-3.5 h-3.5 accent-purple-500 rounded"
+                      />
+                      <span>Enabled</span>
+                    </label>
+                  </div>
+                  <div className="space-y-2 text-xs">
+                    <div>
+                      <label className="text-zinc-500 font-mono block">Bank Name</label>
+                      <input
+                        type="text"
+                        value={siteSettingsForm.paymentBankName || ''}
+                        onChange={(e) => setSiteSettingsForm({ ...siteSettingsForm, paymentBankName: e.target.value })}
+                        className="w-full bg-zinc-900 border border-zinc-800 rounded-lg p-2 text-white font-mono"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-zinc-500 font-mono block">Account Name</label>
+                      <input
+                        type="text"
+                        value={siteSettingsForm.paymentBankAccountName || ''}
+                        onChange={(e) => setSiteSettingsForm({ ...siteSettingsForm, paymentBankAccountName: e.target.value })}
+                        className="w-full bg-zinc-900 border border-zinc-800 rounded-lg p-2 text-white font-mono"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-zinc-500 font-mono block">Account Number</label>
+                      <input
+                        type="text"
+                        value={siteSettingsForm.paymentBankAccountNumber || ''}
+                        onChange={(e) => setSiteSettingsForm({ ...siteSettingsForm, paymentBankAccountNumber: e.target.value })}
+                        className="w-full bg-zinc-900 border border-zinc-800 rounded-lg p-2 text-purple-300 font-mono font-bold"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="bg-zinc-950 border border-amber-500/30 rounded-2xl p-5 space-y-3">
+                  <div className="flex items-center justify-between border-b border-zinc-800 pb-2">
+                    <h4 className="font-mono font-bold text-amber-400 text-xs uppercase">Cash on Delivery (COD)</h4>
+                    <label className="flex items-center gap-1.5 cursor-pointer font-mono text-xs text-zinc-400">
+                      <input
+                        type="checkbox"
+                        checked={siteSettingsForm.paymentCodEnabled ?? true}
+                        onChange={(e) => setSiteSettingsForm({ ...siteSettingsForm, paymentCodEnabled: e.target.checked })}
+                        className="w-3.5 h-3.5 accent-amber-500 rounded"
+                      />
+                      <span>Enabled</span>
+                    </label>
+                  </div>
+                  <p className="text-xs text-zinc-400 leading-relaxed pt-1">
+                    Allow drivers to pay upon parcel handover. Orders placed via COD will have status <span className="font-mono text-amber-400">Unpaid / Pay on Delivery</span>.
+                  </p>
+                </div>
+              </div>
+            </div>
+
             {/* Bottom Save Bar */}
             <div className="sticky bottom-4 z-30 bg-zinc-900/95 backdrop-blur-md border border-amber-500/40 p-4 rounded-2xl flex items-center justify-between shadow-2xl">
               <span className="font-mono text-sm text-amber-400 font-bold">
@@ -1518,7 +2208,20 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         {/* TAB 4: ORDERS HISTORY */}
         {activeTab === 'orders' && (
           <div className="space-y-6">
-            <h3 className="text-2xl font-bold font-mono text-white">PARTS ORDERS HISTORY</h3>
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div>
+                <h3 className="text-2xl font-bold font-mono text-white uppercase tracking-tight">PARTS ORDERS & PAYMENT AUDIT</h3>
+                <p className="text-xs text-zinc-400 font-mono mt-0.5">
+                  Verify customer GCash/Maya reference numbers, inspect uploaded receipts, and dispatch parts.
+                </p>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-mono text-zinc-500">
+                  {orders.filter(o => o.paymentStatus === 'pending_verification').length} Pending Payment Verifications
+                </span>
+              </div>
+            </div>
 
             <div className="space-y-4">
               {orders.length === 0 ? (
@@ -1527,26 +2230,32 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 </div>
               ) : (
                 orders.map((o) => (
-                  <div key={o.id} className="p-5 bg-zinc-900 border border-zinc-800 rounded-2xl space-y-3 text-sm">
-                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-zinc-800/80 pb-3">
+                  <div key={o.id} className="p-5 bg-zinc-900 border border-zinc-800 rounded-2xl space-y-4 text-sm">
+                    {/* Header: Order ID, Customer, Amount, Order Status */}
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-zinc-800/80 pb-3">
                       <div>
-                        <span className="font-mono font-bold text-amber-400">ORDER ID: {o.id}</span>
-                        <p className="text-zinc-300 font-bold mt-0.5">{o.customerName} ({o.customerEmail})</p>
-                        <p className="text-[12px] text-zinc-500 font-mono">{o.shippingAddress?.street}, {o.shippingAddress?.city}, {o.shippingAddress?.state}</p>
+                        <div className="flex items-center gap-2">
+                          <span className="font-mono font-bold text-amber-400 text-sm">ORDER #{o.id.slice(0, 10).toUpperCase()}</span>
+                          <span className="text-zinc-600 font-mono text-[11px]">ID: {o.id}</span>
+                        </div>
+                        <p className="text-zinc-200 font-bold mt-0.5">{o.customerName} ({o.customerEmail})</p>
+                        <p className="text-[12px] text-zinc-400 font-mono">
+                          📍 {o.shippingAddress?.street}, {o.shippingAddress?.city}, {o.shippingAddress?.state} {o.shippingAddress?.zipCode} | 📞 {o.phone || 'N/A'}
+                        </p>
                       </div>
 
-                      <div className="flex items-center gap-3 font-mono">
+                      <div className="flex items-center gap-3 font-mono flex-wrap sm:flex-nowrap">
                         <span className="text-xl font-black text-white">₱{o.totalAmount.toLocaleString()} PHP</span>
                         <select
                           value={o.status || 'pending'}
                           onChange={(e) => handleUpdateOrder(o.id, e.target.value as OrderStatus)}
                           className="bg-zinc-950 border border-zinc-700 text-amber-400 font-bold rounded-lg px-3 py-1.5 text-[12px] uppercase tracking-tighter"
                         >
-                          <option value="pending">Pending</option>
-                          <option value="accepted">Accepted</option>
-                          <option value="preparing">Preparing</option>
+                          <option value="pending">Pending Review</option>
+                          <option value="accepted">Accepted & Processing</option>
+                          <option value="preparing">Preparing in Garage</option>
                           <option value="ready_to_ship">Ready for Shipment</option>
-                          <option value="shipped">Shipped</option>
+                          <option value="shipped">Shipped with Courier</option>
                           <option value="delivered">Delivered</option>
                           <option value="cancelled">Cancelled</option>
                         </select>
@@ -1559,6 +2268,101 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                       </div>
                     </div>
 
+                    {/* PAYMENT AUDIT ROW */}
+                    <div className="bg-zinc-950/80 p-3.5 rounded-xl border border-zinc-800 flex flex-col md:flex-row items-start md:items-center justify-between gap-3 text-xs">
+                      {/* Left: Payment Method & Reference */}
+                      <div className="flex flex-wrap items-center gap-3">
+                        {/* Payment Method Badge */}
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-[11px] font-mono text-zinc-500 uppercase">Method:</span>
+                          <span className={`font-mono font-bold px-2 py-0.5 rounded text-[11px] uppercase ${
+                            o.paymentMethod === 'gcash' ? 'bg-blue-950 border border-blue-600 text-blue-300' :
+                            o.paymentMethod === 'paymaya' ? 'bg-emerald-950 border border-emerald-600 text-emerald-300' :
+                            o.paymentMethod === 'bank_transfer' ? 'bg-purple-950 border border-purple-600 text-purple-300' :
+                            'bg-amber-950 border border-amber-600 text-amber-300'
+                          }`}>
+                            {o.paymentMethod === 'gcash' ? 'GCash' :
+                             o.paymentMethod === 'paymaya' ? 'Maya (PayMaya)' :
+                             o.paymentMethod === 'bank_transfer' ? 'Bank Transfer' : 'Cash on Delivery (COD)'}
+                          </span>
+                        </div>
+
+                        {/* Reference Number */}
+                        {o.paymentReference && (
+                          <div className="flex items-center gap-1.5 bg-zinc-900 px-2.5 py-1 rounded-lg border border-zinc-800">
+                            <span className="text-zinc-500 font-mono text-[11px] uppercase">Ref:</span>
+                            <span className="font-mono font-bold text-white tracking-wider">{o.paymentReference}</span>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                navigator.clipboard.writeText(o.paymentReference || '');
+                                toast.success('Reference Copied', `Copied: ${o.paymentReference}`);
+                              }}
+                              className="text-zinc-500 hover:text-amber-400 ml-1"
+                              title="Copy Reference"
+                            >
+                              <Copy className="w-3 h-3" />
+                            </button>
+                          </div>
+                        )}
+
+                        {/* Receipt Screenshot Button */}
+                        {o.paymentReceiptUrl && (
+                          <button
+                            type="button"
+                            onClick={() => setViewingReceiptOrder(o)}
+                            className="flex items-center gap-1 text-[11px] font-mono bg-zinc-800 hover:bg-zinc-700 text-zinc-200 px-2.5 py-1 rounded-lg border border-zinc-700 transition-colors"
+                          >
+                            <ImageIcon className="w-3 h-3 text-amber-400" />
+                            <span>View Receipt Screenshot</span>
+                          </button>
+                        )}
+                      </div>
+
+                      {/* Right: Payment Status & Quick Verification Action */}
+                      <div className="flex items-center gap-2 self-end md:self-auto font-mono">
+                        <span className="text-zinc-500 text-[11px] uppercase">Payment Status:</span>
+                        
+                        <select
+                          value={o.paymentStatus || 'unpaid'}
+                          onChange={(e) => handleUpdatePaymentStatus(o.id, e.target.value as PaymentStatusType)}
+                          className={`rounded-lg px-2.5 py-1 text-[11px] font-mono font-bold uppercase tracking-tight border focus:outline-none ${
+                            o.paymentStatus === 'verified' || o.paymentStatus === 'paid'
+                              ? 'bg-emerald-950 border-emerald-600 text-emerald-300'
+                              : o.paymentStatus === 'pending_verification'
+                              ? 'bg-amber-950 border-amber-500 text-amber-300 animate-pulse'
+                              : o.paymentStatus === 'failed'
+                              ? 'bg-red-950 border-red-600 text-red-300'
+                              : 'bg-zinc-900 border-zinc-700 text-zinc-400'
+                          }`}
+                        >
+                          <option value="pending_verification">Pending Verification</option>
+                          <option value="verified">Verified (Approved)</option>
+                          <option value="paid">Paid</option>
+                          <option value="unpaid">Unpaid / COD</option>
+                          <option value="failed">Failed / Invalid Ref</option>
+                          <option value="refunded">Refunded</option>
+                        </select>
+
+                        {/* 1-Click Verify Button if still pending */}
+                        {o.paymentStatus === 'pending_verification' && (
+                          <button
+                            type="button"
+                            disabled={verifyingOrderId === o.id}
+                            onClick={() => handleVerifyPayment(o.id)}
+                            className="bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white font-black px-3 py-1 rounded-lg text-[11px] font-mono uppercase tracking-wider flex items-center gap-1.5 transition-all shadow-md shadow-emerald-900/30"
+                          >
+                            {verifyingOrderId === o.id ? (
+                              <RefreshCw className="w-3 h-3 animate-spin" />
+                            ) : (
+                              <CheckCircle className="w-3 h-3" />
+                            )}
+                            <span>Verify & Accept</span>
+                          </button>
+                        )}
+                      </div>
+                    </div>
+
                     {/* Order Items List */}
                     <div className="flex flex-wrap gap-2 pt-1">
                       {o.items?.map((item, idx) => (
@@ -1566,6 +2370,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                           <span className="text-amber-400 font-bold">{item.brand}</span>
                           <span className="text-zinc-300">{item.productName}</span>
                           <span className="text-zinc-500">x{item.quantity}</span>
+                          <span className="text-zinc-400">₱{(item.price * item.quantity).toLocaleString()}</span>
                         </div>
                       ))}
                     </div>
@@ -1765,7 +2570,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                         <tr key={b.id} className="hover:bg-zinc-800/30 transition-colors">
                           <td className="p-4 flex items-center gap-3">
                             <img
-                              src={b.image}
+                              src={b.image || 'https://images.unsplash.com/photo-1617814076367-b759c7d7e738?auto=format&fit=crop&q=80&w=800'}
                               alt={b.name}
                               className="w-16 h-10 object-cover rounded-lg border border-zinc-700 bg-zinc-950"
                               referrerPolicy="no-referrer"
@@ -2380,6 +3185,81 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   </>
                 )}
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* RECEIPT SCREENSHOT PREVIEW MODAL */}
+      {viewingReceiptOrder && (
+        <div className="fixed inset-0 z-[120] bg-zinc-950/90 backdrop-blur-md flex items-center justify-center p-4">
+          <div className="bg-zinc-900 border border-zinc-700 rounded-3xl max-w-lg w-full p-6 space-y-4 shadow-2xl animate-in zoom-in-95">
+            <div className="flex items-center justify-between border-b border-zinc-800 pb-3">
+              <div>
+                <span className="font-mono text-xs text-amber-400 font-bold uppercase">Customer Payment Proof</span>
+                <h4 className="font-mono font-bold text-white text-base">
+                  Order #{viewingReceiptOrder.id.slice(0, 10).toUpperCase()}
+                </h4>
+              </div>
+              <button
+                type="button"
+                onClick={() => setViewingReceiptOrder(null)}
+                className="text-zinc-400 hover:text-white p-1 rounded-lg hover:bg-zinc-800"
+              >
+                <XCircle className="w-6 h-6" />
+              </button>
+            </div>
+
+            <div className="space-y-2 text-xs font-mono">
+              <div className="flex justify-between bg-zinc-950 p-2.5 rounded-xl border border-zinc-800">
+                <span className="text-zinc-500">Sender:</span>
+                <span className="text-zinc-200 font-bold">{viewingReceiptOrder.customerName}</span>
+              </div>
+              <div className="flex justify-between bg-zinc-950 p-2.5 rounded-xl border border-zinc-800">
+                <span className="text-zinc-500">Method & Ref:</span>
+                <span className="text-amber-400 font-bold">
+                  {viewingReceiptOrder.paymentMethod?.toUpperCase()} | {viewingReceiptOrder.paymentReference || 'No Ref Entered'}
+                </span>
+              </div>
+            </div>
+
+            {/* Receipt Image Display */}
+            {viewingReceiptOrder.paymentReceiptUrl ? (
+              <div className="max-h-[60vh] overflow-auto rounded-2xl bg-zinc-950 p-2 border border-zinc-800 flex items-center justify-center">
+                <img
+                  src={viewingReceiptOrder.paymentReceiptUrl}
+                  alt="Customer Payment Receipt"
+                  className="max-w-full max-h-[50vh] object-contain rounded-xl shadow-lg"
+                />
+              </div>
+            ) : (
+              <div className="p-8 text-center text-zinc-500 font-mono text-sm bg-zinc-950 rounded-2xl">
+                No screenshot image attached for this order.
+              </div>
+            )}
+
+            <div className="flex items-center justify-between gap-3 pt-2">
+              <button
+                type="button"
+                onClick={() => setViewingReceiptOrder(null)}
+                className="px-4 py-2 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 font-mono text-xs uppercase font-bold rounded-xl"
+              >
+                Close
+              </button>
+
+              {viewingReceiptOrder.paymentStatus === 'pending_verification' && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    handleVerifyPayment(viewingReceiptOrder.id);
+                    setViewingReceiptOrder(null);
+                  }}
+                  className="px-5 py-2 bg-emerald-600 hover:bg-emerald-500 text-white font-mono text-xs uppercase font-bold rounded-xl flex items-center gap-2 shadow-lg shadow-emerald-900/30"
+                >
+                  <CheckCircle className="w-4 h-4" />
+                  <span>Verify Payment Now</span>
+                </button>
+              )}
             </div>
           </div>
         </div>

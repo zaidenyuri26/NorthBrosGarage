@@ -13,7 +13,7 @@ export const renderBrandBadgeNode = (brandName: string, size: 'sm' | 'md' | 'lg'
     return (
       <div className={`text-zinc-200 px-2 py-1 flex items-baseline font-sans font-black italic bg-transparent ${size === 'sm' ? 'text-[10px]' : size === 'lg' ? 'text-base px-4 py-2' : 'text-xs'}`}>
         <span className="brand-line1-text-sm">NORTH</span>
-        <span className="text-[#e5a823] ml-0.5">BROS</span>
+        <span className="brand-line2-text-sm ml-0.5">BROS</span>
       </div>
     );
   }

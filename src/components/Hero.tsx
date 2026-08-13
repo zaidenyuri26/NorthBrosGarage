@@ -1,5 +1,5 @@
 import React from 'react';
-import { Search, ChevronRight, ChevronLeft } from 'lucide-react';
+import { ChevronRight, ChevronLeft } from 'lucide-react';
 import { BrandBadgesBar, NorthBrosAngledEmblem, BrandHeader } from './BrandHeader';
 import { Product, SiteSettings } from '../types';
 import { MediaShowcase } from './MediaShowcase';
@@ -82,7 +82,7 @@ export const Hero: React.FC<HeroProps> = ({
                 {title1}
               </span>
               <br />
-              <span className="text-[#e5a823] drop-shadow-[0_1px_2px_rgba(0,0,0,0.4)]">
+              <span className="brand-line2-text">
                 {title2}
               </span>
             </h1>
@@ -91,42 +91,21 @@ export const Hero: React.FC<HeroProps> = ({
               {description}
             </p>
 
-            {/* Quick Hero Search Bar */}
-            <div className="bg-zinc-900/90 p-1.5 sm:p-2 rounded-2xl border border-zinc-800 focus-within:border-amber-500/80 shadow-2xl transition-all max-w-xl">
-              <div className="flex items-center gap-1.5 sm:gap-2">
-                <Search className="w-4 h-4 sm:w-5 sm:h-5 text-amber-500 ml-2 sm:ml-3 shrink-0" />
-                <input
-                  type="text"
-                  placeholder="Search parts, car model..."
-                  value={searchQuery || ''}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full bg-transparent text-sm sm:text-base text-zinc-100 placeholder-zinc-500 focus:outline-none py-2 font-mono"
-                />
-                <button
-                  onClick={onExploreParts}
-                  className="bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-zinc-950 font-black px-3 sm:px-5 py-2 sm:py-2.5 rounded-xl text-[12px] sm:text-sm uppercase tracking-wider shrink-0 transition-all flex items-center gap-1 sm:gap-1.5"
-                >
-                  <span className="hidden xs:inline">Search</span>
-                  <ChevronRight className="w-4 h-4" />
-                </button>
-              </div>
-            </div>
-
             {/* Action Buttons */}
-            <div className="flex flex-col xs:flex-row items-stretch xs:items-center gap-3 sm:gap-4 pt-2">
+            <div className="flex flex-col xs:flex-row items-stretch xs:items-center gap-3 sm:gap-4 pt-1">
               <button
                 onClick={onExploreParts}
                 id="hero-explore-parts-btn"
-                className="bg-white hover:bg-zinc-100 text-zinc-950 font-black px-6 py-3 sm:px-7 sm:py-3.5 rounded-xl text-sm sm:text-base uppercase tracking-wider shadow-lg shadow-white/5 active:scale-95 transition-all flex items-center justify-center gap-2"
+                className="bg-white hover:bg-zinc-100 text-zinc-950 font-black px-6 py-3.5 sm:px-7 sm:py-4 rounded-xl text-sm sm:text-base uppercase tracking-wider shadow-xl shadow-white/5 active:scale-95 transition-all flex items-center justify-center gap-2 group"
               >
                 <span>{primaryBtn}</span>
-                <ChevronRight className="w-4 h-4" />
+                <ChevronRight className="w-4 h-4 text-zinc-950 group-hover:translate-x-0.5 transition-transform" />
               </button>
 
               <button
                 onClick={onExploreServices}
                 id="hero-explore-services-btn"
-                className="bg-zinc-900 border border-zinc-700 hover:border-zinc-500 text-zinc-200 font-bold px-6 py-3 sm:py-3.5 rounded-xl text-sm sm:text-base uppercase tracking-wider transition-all hover:bg-zinc-800 text-center"
+                className="bg-zinc-900/90 border border-zinc-700 hover:border-amber-500/80 text-zinc-100 font-bold px-6 py-3.5 sm:py-4 rounded-xl text-sm sm:text-base uppercase tracking-wider transition-all hover:bg-zinc-800 text-center"
               >
                 {secondaryBtn}
               </button>
@@ -134,13 +113,16 @@ export const Hero: React.FC<HeroProps> = ({
 
             {/* Quick Tags / Pills */}
             {quickTags.length > 0 && (
-              <div className="pt-3 flex flex-wrap items-center gap-2">
-                <span className="text-[11px] font-mono text-zinc-300 uppercase font-bold">Trending:</span>
+              <div className="pt-2 flex flex-wrap items-center gap-2">
+                <span className="text-[11px] font-mono text-zinc-400 uppercase font-bold">Trending:</span>
                 {quickTags.map((tag, i) => (
                   <button
                     key={i}
-                    onClick={() => setSearchQuery(tag)}
-                    className="text-[12px] font-mono bg-zinc-900 hover:bg-zinc-800 text-zinc-200 hover:text-amber-400 px-2.5 py-1 rounded-lg border border-zinc-700 transition-colors font-medium"
+                    onClick={() => {
+                      setSearchQuery(tag);
+                      onExploreParts();
+                    }}
+                    className="text-[12px] font-mono bg-zinc-900 hover:bg-zinc-800 text-zinc-200 hover:text-amber-400 px-2.5 py-1 rounded-lg border border-zinc-700 transition-colors font-medium cursor-pointer"
                   >
                     #{tag}
                   </button>

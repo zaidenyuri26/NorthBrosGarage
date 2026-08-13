@@ -256,10 +256,14 @@ export const MediaShowcase: React.FC<MediaShowcaseProps> = ({
   }
 
   // 4. Default to Image Fallback
+  if (!src || src.trim() === '') {
+    return null;
+  }
+
   return (
     <img
       src={src}
-      alt={alt}
+      alt={alt || "Media"}
       className={className}
       referrerPolicy="no-referrer"
       onError={onError}

@@ -153,7 +153,27 @@ export const DEFAULT_SITE_SETTINGS: SiteSettings = {
   socialYoutube: '',
   socialFacebook: '',
   socialTwitter: '',
-  copyrightText: ''
+  copyrightText: '',
+
+  // Payment Gateways (GCash & Maya QR Ph)
+  paymentGcashEnabled: true,
+  paymentGcashName: '',
+  paymentGcashNumber: '',
+  paymentGcashQr: '',
+  paymentGcashInstructions: '',
+
+  paymentPaymayaEnabled: true,
+  paymentPaymayaName: '',
+  paymentPaymayaNumber: '',
+  paymentPaymayaQr: '',
+  paymentPaymayaInstructions: '',
+
+  paymentCodEnabled: true,
+  paymentBankEnabled: true,
+  paymentBankName: '',
+  paymentBankAccountName: '',
+  paymentBankAccountNumber: '',
+  paymentBankInstructions: ''
 };
 
 /**
@@ -403,6 +423,32 @@ export async function updateOrderStatus(orderId: string, status: OrderStatus): P
   try {
     const ref = doc(db, ORDERS_COLLECTION, orderId);
     await updateDoc(ref, { status });
+  } catch (err) {
+    handleFirestoreError(err, OperationType.UPDATE, path);
+  }
+}
+
+export async function updateOrderPaymentStatus(
+  orderId: string,
+  paymentStatus: 'pending_verification' | 'verified' | 'paid' | 'unpaid' | 'failed',
+  notes?: string
+): Promise<void> {
+  const path = `${ORDERS_COLLECTION}/${orderId}`;
+  try {
+    const ref = doc(db, ORDERS_COLLECTION, orderId);
+    const updatePayload: Record<string, any> = {
+      paymentStatus,
+      verifiedAt: new Date().toISOString(),
+      verifiedBy: auth.currentUser?.email || 'Garage Admin'
+    };
+    if (notes) {
+      updatePayload.paymentNotes = notes;
+    }
+    // Also update order status to 'accepted' if payment is verified
+    if (paymentStatus === 'verified' || paymentStatus === 'paid') {
+      updatePayload.status = 'accepted';
+    }
+    await updateDoc(ref, updatePayload);
   } catch (err) {
     handleFirestoreError(err, OperationType.UPDATE, path);
   }
