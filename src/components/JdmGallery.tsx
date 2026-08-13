@@ -77,6 +77,25 @@ export const JdmGallery: React.FC<JdmGalleryProps> = ({
     }
   };
 
+  const title = siteSettings?.tunerShowcaseTitle || 'THE TUNER SHOWCASE';
+  const subtitle = siteSettings?.tunerShowcaseSubtitle || 'From street sleepers to 1000+ HP circuit monsters, explore our curated gallery of legendary JDM builds. Witness the perfect fusion of authentic parts and master calibration.';
+
+  const renderSplitTitle = (text: string) => {
+    const words = text.trim().split(' ');
+    if (words.length <= 1) {
+      return <span className="brand-line1-text">{text}</span>;
+    }
+    const mid = Math.ceil(words.length / 2);
+    const line1 = words.slice(0, mid).join(' ');
+    const line2 = words.slice(mid).join(' ');
+    return (
+      <>
+        <span className="brand-line1-text">{line1}</span>{' '}
+        <span className="text-[#e5a823] drop-shadow-[0_1px_2px_rgba(0,0,0,0.4)]">{line2}</span>
+      </>
+    );
+  };
+
   if (!activeBuild) {
     return (
       <section id="jdm-gallery" className="py-16 bg-transparent border-t border-b border-zinc-900 relative overflow-hidden text-left">
@@ -107,11 +126,11 @@ export const JdmGallery: React.FC<JdmGalleryProps> = ({
               <Camera className="w-3.5 h-3.5" />
               <span>{siteSettings?.tunerShowcaseBadge || 'NORTHBROS PROJECT CAR CHRONICLES'}</span>
             </div>
-            <h2 className="text-4xl sm:text-5xl font-black text-white italic font-mono uppercase">
-              {siteSettings?.tunerShowcaseTitle || 'THE TUNER SHOWCASE'}
+            <h2 className="text-4xl sm:text-5xl font-black italic font-mono uppercase tracking-tight">
+              {renderSplitTitle(title)}
             </h2>
-            <p className="text-sm sm:text-base text-zinc-400 max-w-xl mt-1">
-              {siteSettings?.tunerShowcaseSubtitle || 'From street sleepers to 1000+ HP circuit monsters, explore our curated gallery of legendary JDM builds. Witness the perfect fusion of authentic parts and master calibration.'}
+            <p className="text-sm sm:text-base text-zinc-200 max-w-xl mt-1 leading-relaxed font-normal">
+              {subtitle}
             </p>
           </div>
 
@@ -197,7 +216,7 @@ export const JdmGallery: React.FC<JdmGalleryProps> = ({
 
             {/* Spec Details Grid */}
             <div className="p-5 sm:p-6 bg-zinc-950 border-t border-zinc-800 space-y-4">
-              <p className="text-sm sm:text-base text-zinc-300 text-left leading-relaxed italic">
+              <p className="text-sm sm:text-base text-zinc-100 text-left leading-relaxed italic font-medium">
                 "{activeBuild.description}"
               </p>
 
@@ -232,21 +251,21 @@ export const JdmGallery: React.FC<JdmGalleryProps> = ({
               {/* Detailed Performance Metrics */}
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 pt-4 border-t border-zinc-800/80 text-left">
                 <div className="space-y-1">
-                  <span className="text-[11px] text-zinc-500 font-mono uppercase block">Engine block</span>
+                  <span className="text-[11px] text-zinc-300 font-mono uppercase block font-semibold">Engine block</span>
                   <div className="flex items-center gap-1.5">
                     <Cpu className="w-3.5 h-3.5 text-amber-400" />
                     <span className="text-sm font-bold text-zinc-100 font-mono truncate">{activeBuild.engine}</span>
                   </div>
                 </div>
                 <div className="space-y-1">
-                  <span className="text-[11px] text-zinc-500 font-mono uppercase block">Dyno power</span>
+                  <span className="text-[11px] text-zinc-300 font-mono uppercase block font-semibold">Dyno power</span>
                   <div className="flex items-center gap-1.5">
                     <Zap className="w-3.5 h-3.5 text-amber-400 animate-pulse" />
                     <span className="text-sm font-black text-white font-mono">{activeBuild.power}</span>
                   </div>
                 </div>
                 <div className="space-y-1">
-                  <span className="text-[11px] text-zinc-500 font-mono uppercase block">Finish</span>
+                  <span className="text-[11px] text-zinc-300 font-mono uppercase block font-semibold">Finish</span>
                   <div className="flex items-center gap-1.5">
                     <span className="w-2.5 h-2.5 rounded-full bg-zinc-400 border border-zinc-600 block" style={{
                       backgroundColor: activeBuild.color?.toLowerCase().includes('purple') ? '#632b85' : activeBuild.color?.toLowerCase().includes('white') ? '#f3f4f6' : activeBuild.color?.toLowerCase().includes('yellow') ? '#facc15' : '#dc2626'
@@ -255,7 +274,7 @@ export const JdmGallery: React.FC<JdmGalleryProps> = ({
                   </div>
                 </div>
                 <div className="space-y-1">
-                  <span className="text-[11px] text-zinc-500 font-mono uppercase block">Driver / Owner</span>
+                  <span className="text-[11px] text-zinc-300 font-mono uppercase block font-semibold">Driver / Owner</span>
                   <div className="flex items-start gap-1.5 mt-0.5">
                     <Compass className="w-3.5 h-3.5 text-amber-400 mt-0.5 shrink-0" />
                     <span className="text-sm font-bold text-zinc-100 font-mono break-words">{activeBuild.owner}</span>

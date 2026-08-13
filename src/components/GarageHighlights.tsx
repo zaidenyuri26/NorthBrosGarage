@@ -13,6 +13,22 @@ export const GarageHighlights: React.FC<GarageHighlightsProps> = ({ siteSettings
   const description = siteSettings?.aboutDescription || 'Founded by dedicated circuit racers and master mechanics, NorthBros Garage delivers high-precision tuning, forged engine building, and authentic JDM performance parts to automotive enthusiasts nationwide.';
   const image = siteSettings?.aboutImage || '';
 
+  const renderSplitTitle = (text: string) => {
+    const words = text.trim().split(' ');
+    if (words.length <= 1) {
+      return <span className="brand-line1-text">{text}</span>;
+    }
+    const mid = Math.ceil(words.length / 2);
+    const line1 = words.slice(0, mid).join(' ');
+    const line2 = words.slice(mid).join(' ');
+    return (
+      <>
+        <span className="brand-line1-text">{line1}</span>{' '}
+        <span className="text-[#e5a823] drop-shadow-[0_1px_2px_rgba(0,0,0,0.4)]">{line2}</span>
+      </>
+    );
+  };
+
   // Multi-image Highlights Carousel logic
   const allAboutImages = React.useMemo(() => {
     const list: string[] = [];
@@ -128,11 +144,11 @@ export const GarageHighlights: React.FC<GarageHighlightsProps> = ({ siteSettings
               <span>NORTHBROS GARAGE HIGHLIGHTS</span>
             </div>
 
-            <h2 className="text-4xl sm:text-6xl font-black text-white italic font-mono uppercase leading-tight">
-              {title}
+            <h2 className="text-4xl sm:text-6xl font-black italic font-mono uppercase leading-tight tracking-tight">
+              {renderSplitTitle(title)}
             </h2>
 
-            <p className="text-zinc-300 text-base sm:text-xl leading-relaxed font-light">
+            <p className="text-zinc-100 text-base sm:text-xl leading-relaxed font-normal">
               {description}
             </p>
 

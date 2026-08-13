@@ -16,6 +16,22 @@ export const ServicesSection: React.FC<ServicesSectionProps> = ({ services, site
   const title = siteSettings?.servicesTitle || 'GARAGE & PERFORMANCE SERVICES';
   const subtitle = siteSettings?.servicesSubtitle || 'Equipped with 2000HP AWD Chassis Dyno, precision TIG welding stations, engine blueprinting cleanroom, and master JDM technicians.';
 
+  const renderSplitTitle = (text: string) => {
+    const words = text.trim().split(' ');
+    if (words.length <= 1) {
+      return <span className="brand-line1-text">{text}</span>;
+    }
+    const mid = Math.ceil(words.length / 2);
+    const line1 = words.slice(0, mid).join(' ');
+    const line2 = words.slice(mid).join(' ');
+    return (
+      <>
+        <span className="brand-line1-text">{line1}</span>{' '}
+        <span className="text-[#e5a823] drop-shadow-[0_1px_2px_rgba(0,0,0,0.4)]">{line2}</span>
+      </>
+    );
+  };
+
   const getIcon = (name: string) => {
     switch (name) {
       case 'Activity': return <Activity className="w-6 h-6 text-[#e5a823]" />;
@@ -56,10 +72,10 @@ export const ServicesSection: React.FC<ServicesSectionProps> = ({ services, site
               <span className="w-2 h-2 rounded-full bg-[#e5a823] animate-ping" />
               <span>{badge}</span>
             </div>
-            <h2 className="text-3xl sm:text-5xl lg:text-6xl font-black text-white italic font-sans uppercase tracking-tight">
-              {title}
+            <h2 className="text-3xl sm:text-5xl lg:text-6xl font-black italic font-sans uppercase tracking-tight">
+              {renderSplitTitle(title)}
             </h2>
-            <p className="text-zinc-400 text-sm sm:text-base mt-2 max-w-2xl leading-relaxed">
+            <p className="text-zinc-200 text-sm sm:text-base mt-2 max-w-2xl leading-relaxed font-normal">
               {subtitle}
             </p>
           </div>
@@ -160,16 +176,16 @@ export const ServicesSection: React.FC<ServicesSectionProps> = ({ services, site
                       <h3 className="text-xl font-bold text-white group-hover:text-[#e5a823] transition-colors line-clamp-1 font-sans">
                         {service.title}
                       </h3>
-                      <p className="text-sm text-zinc-400 mt-1.5 line-clamp-2 leading-relaxed">
+                      <p className="text-sm text-zinc-200 mt-1.5 line-clamp-2 leading-relaxed font-normal">
                         {service.description}
                       </p>
                     </div>
 
                     {/* Included Key Deliverables */}
                     <div className="space-y-1.5 pt-2 border-t border-zinc-800/80">
-                      <div className="text-[11px] font-mono font-bold text-zinc-500 uppercase tracking-wider">Service Inclusions:</div>
+                      <div className="text-[11px] font-mono font-bold text-zinc-300 uppercase tracking-wider">Service Inclusions:</div>
                       {service.features?.slice(0, 3).map((feat, idx) => (
-                        <div key={idx} className="flex items-start gap-2 text-xs text-zinc-300">
+                        <div key={idx} className="flex items-start gap-2 text-xs text-zinc-200">
                           <Check className="w-3.5 h-3.5 text-[#e5a823] shrink-0 mt-0.5" />
                           <span className="line-clamp-1">{feat}</span>
                         </div>

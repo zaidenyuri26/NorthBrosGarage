@@ -12,7 +12,7 @@ export const renderBrandBadgeNode = (brandName: string, size: 'sm' | 'md' | 'lg'
   if (normalized.includes('NORTH')) {
     return (
       <div className={`text-zinc-200 px-2 py-1 flex items-baseline font-sans font-black italic bg-transparent ${size === 'sm' ? 'text-[10px]' : size === 'lg' ? 'text-base px-4 py-2' : 'text-xs'}`}>
-        <span className="text-black [text-shadow:0_0_2px_rgba(255,255,255,0.7),0_0_8px_rgba(255,255,255,0.2)]">NORTH</span>
+        <span className="brand-line1-text-sm">NORTH</span>
         <span className="text-[#e5a823] ml-0.5">BROS</span>
       </div>
     );

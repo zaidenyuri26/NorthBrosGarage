@@ -64,7 +64,7 @@ export const BrandHeader: React.FC<BrandHeaderProps> = ({
     if (lower.includes('north') && lower.includes('bros')) {
       return (
         <span className="inline-flex items-baseline font-black italic tracking-[-0.04em] uppercase font-sans">
-          <span className="text-black [text-shadow:0_0_2px_rgba(255,255,255,0.7),0_0_8px_rgba(255,255,255,0.2)]">North</span>
+          <span className="brand-line1-text">North</span>
           <span className="text-[#e5a823] drop-shadow-[0_1px_2px_rgba(0,0,0,0.4)] ml-0.5">Bros</span>
         </span>
       );
@@ -72,8 +72,8 @@ export const BrandHeader: React.FC<BrandHeaderProps> = ({
       const parts = raw.split(/north/i);
       return (
         <span className="inline-flex items-baseline font-black italic tracking-[-0.04em] uppercase font-sans">
-          {parts[0] && <span className="text-black [text-shadow:0_0_2px_rgba(255,255,255,0.7)]">{parts[0]}</span>}
-          <span className="text-black [text-shadow:0_0_2px_rgba(255,255,255,0.7)]">North</span>
+          {parts[0] && <span className="brand-line1-text">{parts[0]}</span>}
+          <span className="brand-line1-text">North</span>
           {parts[1] && <span className="text-[#e5a823]">{parts[1]}</span>}
         </span>
       );
@@ -81,15 +81,15 @@ export const BrandHeader: React.FC<BrandHeaderProps> = ({
       const parts = raw.split(/bros/i);
       return (
         <span className="inline-flex items-baseline font-black italic tracking-[-0.04em] uppercase font-sans">
-          <span className="text-black [text-shadow:0_0_2px_rgba(255,255,255,0.7)]">{parts[0]}</span>
+          <span className="brand-line1-text">{parts[0]}</span>
           <span className="text-[#e5a823] ml-0.5">Bros</span>
-          {parts[1] && <span className="text-black [text-shadow:0_0_2px_rgba(255,255,255,0.7)]">{parts[1]}</span>}
+          {parts[1] && <span className="brand-line1-text">{parts[1]}</span>}
         </span>
       );
     }
 
     return (
-      <span className="inline-flex items-baseline font-black italic tracking-[-0.04em] uppercase font-sans text-black [text-shadow:0_0_2px_rgba(255,255,255,0.7)]">
+      <span className="inline-flex items-baseline font-black italic tracking-[-0.04em] uppercase font-sans brand-line1-text">
         {raw}
       </span>
     );
@@ -132,7 +132,7 @@ export const NorthBrosAngledEmblem: React.FC<{
       <div className={`flex items-center justify-center ${sizeMap[size]}`}>
         <div className="flex flex-col items-center justify-center">
           <div className="flex items-baseline font-black italic tracking-tighter uppercase leading-none">
-            <span className="text-black [text-shadow:0_0_2px_rgba(255,255,255,0.7),0_0_8px_rgba(255,255,255,0.2)] text-base sm:text-xl md:text-2xl">NORTH</span>
+            <span className="brand-line1-text text-base sm:text-xl md:text-2xl">NORTH</span>
             <span className="text-[#e5a823] text-base sm:text-xl md:text-2xl ml-0.5">BROS</span>
           </div>
           <div className="flex items-center gap-1.5 w-full mt-1">

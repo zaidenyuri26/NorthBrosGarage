@@ -35,6 +35,22 @@ export const PartsCatalog: React.FC<PartsCatalogProps> = ({
   const badge = siteSettings?.partsBadge || 'AUTHENTIC JDM & PERFORMANCE CATALOG';
   const title = siteSettings?.partsTitle || 'AUTOMOTIVE PARTS STORE';
 
+  const renderSplitTitle = (text: string) => {
+    const words = text.trim().split(' ');
+    if (words.length <= 1) {
+      return <span className="brand-line1-text">{text}</span>;
+    }
+    const mid = Math.ceil(words.length / 2);
+    const line1 = words.slice(0, mid).join(' ');
+    const line2 = words.slice(mid).join(' ');
+    return (
+      <>
+        <span className="brand-line1-text">{line1}</span>{' '}
+        <span className="text-[#e5a823] drop-shadow-[0_1px_2px_rgba(0,0,0,0.4)]">{line2}</span>
+      </>
+    );
+  };
+
   const [selectedBrand, setSelectedBrand] = useState<string>('All');
   const [sortBy, setSortBy] = useState<'featured' | 'price-asc' | 'price-desc' | 'name'>('featured');
   const [onlyInStock, setOnlyInStock] = useState<boolean>(false);
@@ -187,17 +203,17 @@ export const PartsCatalog: React.FC<PartsCatalogProps> = ({
                     </h3>
                   </div>
 
-                  <p className="text-[12px] sm:text-sm text-zinc-400 line-clamp-2 leading-tight sm:leading-relaxed">
+                  <p className="text-[12px] sm:text-sm text-zinc-200 line-clamp-2 leading-tight sm:leading-relaxed font-normal">
                     {product.description}
                   </p>
 
                   {/* Fitment info */}
                   <div className={`text-[11px] sm:text-[12px] font-mono px-2 sm:px-2.5 py-1 sm:py-1.5 rounded-lg border line-clamp-1 ${
                     isUniversal 
-                      ? 'text-emerald-400 bg-emerald-500/10 border-emerald-500/30 font-bold' 
-                      : 'text-zinc-400 bg-zinc-950/80 border-zinc-800/80'
+                      ? 'text-emerald-300 bg-emerald-500/10 border-emerald-500/30 font-bold' 
+                      : 'text-zinc-200 bg-zinc-950/80 border-zinc-700/80 font-medium'
                   }`}>
-                    <span className={isUniversal ? 'text-emerald-500' : 'text-zinc-500'}>FITMENT:</span> {product.fitment}
+                    <span className={isUniversal ? 'text-emerald-400 font-bold' : 'text-zinc-400 font-bold'}>FITMENT:</span> {product.fitment}
                   </div>
 
                   {/* High Visibility Price Tag */}
@@ -300,8 +316,8 @@ export const PartsCatalog: React.FC<PartsCatalogProps> = ({
               <Sparkles className="w-3.5 h-3.5" />
               <span>{badge}</span>
             </div>
-            <h2 className="text-4xl sm:text-5xl font-black text-white italic font-mono uppercase">
-              {title}
+            <h2 className="text-4xl sm:text-5xl font-black italic font-mono uppercase tracking-tight">
+              {renderSplitTitle(title)}
             </h2>
           </div>
 

@@ -68,23 +68,26 @@ export const Hero: React.FC<HeroProps> = ({
           <div className="lg:col-span-5 space-y-6 text-left">
             
             {/* Status Pill */}
-            <div className="inline-flex items-center gap-2 bg-zinc-900 border border-zinc-800 px-3 py-1.5 rounded-full text-sm font-mono font-medium text-zinc-300">
+            <div className="inline-flex items-center gap-2 bg-zinc-900 border border-zinc-700 px-3 py-1.5 rounded-full text-sm font-mono font-medium text-zinc-200">
               <span className="relative flex h-2 w-2">
                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
                 <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
               </span>
-              <span className="tracking-wide uppercase text-[11px] text-zinc-400 font-bold">{badge}</span>
+              <span className="tracking-wide uppercase text-[11px] text-zinc-200 font-bold">{badge}</span>
             </div>
 
             {/* Headline */}
-            <h1 className="text-3xl sm:text-4xl lg:text-5xl font-black tracking-tight text-white uppercase italic font-mono leading-[1.1] sm:leading-tight">
-              {title1} <br />
-              <span className="text-amber-400">
+            <h1 className="text-3xl sm:text-4xl lg:text-5xl font-black tracking-tight uppercase italic font-mono leading-[1.1] sm:leading-tight">
+              <span className="brand-line1-text">
+                {title1}
+              </span>
+              <br />
+              <span className="text-[#e5a823] drop-shadow-[0_1px_2px_rgba(0,0,0,0.4)]">
                 {title2}
               </span>
             </h1>
 
-            <p className="text-zinc-400 text-sm sm:text-lg leading-relaxed max-w-xl font-sans">
+            <p className="text-zinc-200 text-sm sm:text-lg leading-relaxed max-w-xl font-sans font-normal">
               {description}
             </p>
 
@@ -132,12 +135,12 @@ export const Hero: React.FC<HeroProps> = ({
             {/* Quick Tags / Pills */}
             {quickTags.length > 0 && (
               <div className="pt-3 flex flex-wrap items-center gap-2">
-                <span className="text-[11px] font-mono text-zinc-500 uppercase font-bold">Trending:</span>
+                <span className="text-[11px] font-mono text-zinc-300 uppercase font-bold">Trending:</span>
                 {quickTags.map((tag, i) => (
                   <button
                     key={i}
                     onClick={() => setSearchQuery(tag)}
-                    className="text-[12px] font-mono bg-zinc-900 hover:bg-zinc-800 text-zinc-300 hover:text-amber-400 px-2.5 py-1 rounded-lg border border-zinc-800/80 transition-colors"
+                    className="text-[12px] font-mono bg-zinc-900 hover:bg-zinc-800 text-zinc-200 hover:text-amber-400 px-2.5 py-1 rounded-lg border border-zinc-700 transition-colors font-medium"
                   >
                     #{tag}
                   </button>
@@ -149,11 +152,11 @@ export const Hero: React.FC<HeroProps> = ({
             <div className="pt-4 grid grid-cols-2 gap-4 border-t border-zinc-800/80 max-w-lg text-left">
               <div>
                 <p className="text-2xl font-mono font-black text-amber-500">{inStockCount}</p>
-                <p className="text-[12px] text-zinc-400 uppercase font-mono">In Stock Parts</p>
+                <p className="text-[12px] text-zinc-300 uppercase font-mono font-semibold">In Stock Parts</p>
               </div>
               <div>
                 <p className="text-2xl font-mono font-black text-white">DIRECT</p>
-                <p className="text-[12px] text-zinc-400 uppercase font-mono">JDM Importers</p>
+                <p className="text-[12px] text-zinc-300 uppercase font-mono font-semibold">JDM Importers</p>
               </div>
             </div>
 
