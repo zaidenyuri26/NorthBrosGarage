@@ -1,0 +1,49 @@
+@import "tailwindcss";
+
+@theme {
+  --image-global-bg: url('/src/assets/images/global_bg_1786622019879.jpg');
+}
+
+body {
+  position: relative;
+  min-height: 100vh;
+  color: #f4f4f5; /* zinc-100 fallback */
+  background-color: #09090b; /* zinc-950 fallback to ensure contrast */
+}
+
+body::before {
+  content: "";
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-image: var(--image-global-bg);
+  background-size: cover;
+  background-position: center;
+  background-attachment: fixed;
+  background-repeat: no-repeat;
+  opacity: 0.5; /* Reduced opacity to 50% as requested */
+  z-index: -1;
+  pointer-events: none;
+}
+
+@keyframes marquee {
+  0% {
+    transform: translateX(0%);
+  }
+  100% {
+    transform: translateX(-50%);
+  }
+}
+
+.animate-marquee {
+  display: flex;
+  width: max-content;
+  animation: marquee 22s linear infinite;
+}
+
+.animate-marquee:hover {
+  animation-play-state: paused;
+}
+

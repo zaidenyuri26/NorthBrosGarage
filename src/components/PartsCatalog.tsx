@@ -1,0 +1,360 @@
+import React, { useState, useMemo } from 'react';
+import { Search, Filter, ShoppingBag, Eye, Edit3, Trash2, Plus, Check, Sparkles, AlertCircle } from 'lucide-react';
+import { Product, UserRole, SiteSettings } from '../types';
+
+interface PartsCatalogProps {
+  products: Product[];
+  searchQuery: string;
+  setSearchQuery: (query: string) => void;
+  selectedCategory: string;
+  setSelectedCategory: (cat: string) => void;
+  onAddToCart: (product: Product) => void;
+  onViewProduct: (product: Product) => void;
+  userRole?: UserRole;
+  onEditProduct?: (product: Product) => void;
+  onDeleteProduct?: (productId: string) => void;
+  onAddNewProduct?: () => void;
+  siteSettings?: SiteSettings;
+}
+
+export const PartsCatalog: React.FC<PartsCatalogProps> = ({
+  products,
+  searchQuery,
+  setSearchQuery,
+  selectedCategory,
+  setSelectedCategory,
+  onAddToCart,
+  onViewProduct,
+  userRole,
+  onEditProduct,
+  onDeleteProduct,
+  onAddNewProduct,
+  siteSettings,
+}) => {
+  const badge = siteSettings?.partsBadge || 'AUTHENTIC JDM & PERFORMANCE CATALOG';
+  const title = siteSettings?.partsTitle || 'AUTOMOTIVE PARTS STORE';
+
+  const [selectedBrand, setSelectedBrand] = useState<string>('All');
+  const [sortBy, setSortBy] = useState<'featured' | 'price-asc' | 'price-desc' | 'name'>('featured');
+  const [onlyInStock, setOnlyInStock] = useState<boolean>(false);
+  const [addedIds, setAddedIds] = useState<Record<string, boolean>>({});
+
+  const categories = ['All', 'Exhaust & Turbo', 'Suspension & Brakes', 'Interior & Seats', 'Wheels & Tires', 'Engine & Tuning'];
+  const brands = ['All', 'HKS', 'Spoon Sports', 'RAYS', 'BRIDE', 'TAKATA', 'MOMO', 'Tomei', 'Cusco'];
+
+  const filteredProducts = useMemo(() => {
+    const list = products.filter((prod) => {
+      const matchesSearch =
+        !searchQuery ||
+        prod.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        prod.brand.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        prod.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        prod.fitment.toLowerCase().includes(searchQuery.toLowerCase());
+
+      const matchesCategory =
+        selectedCategory === 'All' ||
+        selectedCategory === '' ||
+        prod.category.toLowerCase().includes(selectedCategory.toLowerCase()) ||
+        selectedCategory.toLowerCase().includes(prod.category.toLowerCase());
+
+      const matchesBrand =
+        selectedBrand === 'All' ||
+        prod.brand.toLowerCase() === selectedBrand.toLowerCase();
+
+      const matchesStock = !onlyInStock || prod.stock > 0;
+
+      return matchesSearch && matchesCategory && matchesBrand && matchesStock;
+    });
+
+    return list.sort((a, b) => {
+      if (sortBy === 'price-asc') return a.price - b.price;
+      if (sortBy === 'price-desc') return b.price - a.price;
+      if (sortBy === 'name') return a.name.localeCompare(b.name);
+      // 'featured'
+      if (a.featured && !b.featured) return -1;
+      if (!a.featured && b.featured) return 1;
+      return 0;
+    });
+  }, [products, searchQuery, selectedCategory, selectedBrand, onlyInStock, sortBy]);
+
+  const handleAddCart = (p: Product) => {
+    onAddToCart(p);
+    setAddedIds((prev) => ({ ...prev, [p.id]: true }));
+    setTimeout(() => {
+      setAddedIds((prev) => ({ ...prev, [p.id]: false }));
+    }, 1500);
+  };
+
+  return (
+    <section id="parts-catalog" className="py-16 bg-transparent text-zinc-100 text-left">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        
+        {/* Title Header */}
+        <div className="flex flex-col md:flex-row md:items-end justify-between mb-8 gap-4">
+          <div>
+            <div className="inline-flex items-center gap-2 text-amber-400 font-mono text-sm uppercase tracking-widest mb-2 font-bold">
+              <Sparkles className="w-3.5 h-3.5" />
+              <span>{badge}</span>
+            </div>
+            <h2 className="text-4xl sm:text-5xl font-black text-white italic font-mono uppercase">
+              {title}
+            </h2>
+          </div>
+
+          {/* Admin Add New Product Button */}
+          {userRole === 'admin' && onAddNewProduct && (
+            <button
+              onClick={onAddNewProduct}
+              id="admin-add-product-btn"
+              className="flex items-center gap-2 bg-white hover:bg-zinc-100 text-zinc-950 font-extrabold px-4 py-2.5 rounded-xl text-sm uppercase tracking-wider shadow-lg shadow-white/5 transition-all self-start md:self-auto"
+            >
+              <Plus className="w-4 h-4" />
+              <span>Add New Product (Admin)</span>
+            </button>
+          )}
+        </div>
+
+        {/* Filter Controls Bar */}
+        <div className="bg-zinc-900/90 border border-zinc-800 rounded-2xl p-4 mb-8 space-y-4">
+          
+          {/* Categories Tabs */}
+          <div className="flex items-center gap-2 overflow-x-auto pb-2 no-scrollbar">
+            <span className="text-sm font-mono text-zinc-500 uppercase tracking-wider shrink-0 mr-2 flex items-center gap-1">
+              <Filter className="w-3.5 h-3.5" /> Category:
+            </span>
+            {categories.map((cat) => (
+              <button
+                key={cat}
+                onClick={() => setSelectedCategory(cat)}
+                className={`px-3.5 py-1.5 rounded-xl text-sm font-medium whitespace-nowrap transition-all ${
+                  selectedCategory === cat || (cat === 'All' && selectedCategory === '')
+                    ? 'bg-amber-500 text-zinc-950 font-bold shadow-md shadow-amber-500/20'
+                    : 'bg-zinc-800 text-zinc-400 hover:text-white hover:bg-zinc-700'
+                }`}
+              >
+                {cat}
+              </button>
+            ))}
+          </div>
+
+          {/* Brand Filter, Sort & Stock Toggle */}
+          <div className="flex flex-wrap items-center justify-between gap-4 pt-3 border-t border-zinc-800/80 text-sm">
+            
+            {/* Brands Pills */}
+            <div className="flex items-center gap-2 overflow-x-auto no-scrollbar">
+              <span className="font-mono text-zinc-500 uppercase tracking-wider shrink-0 mr-1">Brand:</span>
+              {brands.map((b) => (
+                <button
+                  key={b}
+                  onClick={() => setSelectedBrand(b)}
+                  className={`px-2.5 py-1 rounded-lg text-sm font-mono transition-all ${
+                    selectedBrand === b
+                      ? 'bg-zinc-100 text-zinc-950 font-bold'
+                      : 'text-zinc-400 hover:text-white bg-zinc-950/60 border border-zinc-800'
+                  }`}
+                >
+                  {b}
+                </button>
+              ))}
+            </div>
+
+            {/* Right Side Controls: Sort & Stock & Count */}
+            <div className="flex items-center gap-4 ml-auto">
+              {/* Part Count Indicator */}
+              <div className="text-[12px] font-mono text-amber-500 bg-amber-500/10 border border-amber-500/30 px-2.5 py-1 rounded-lg">
+                <span className="font-bold">{filteredProducts.length}</span> PARTS FOUND
+              </div>
+
+              {/* Sort Selector */}
+              <div className="flex items-center gap-1.5 font-mono text-zinc-400">
+                <span className="text-zinc-500">SORT:</span>
+                <select
+                  value={sortBy}
+                  onChange={(e) => setSortBy(e.target.value as any)}
+                  className="bg-zinc-950 border border-zinc-800 text-zinc-200 text-sm rounded-lg py-1 px-2.5 focus:outline-none focus:border-amber-500 font-mono"
+                >
+                  <option value="featured">Featured First</option>
+                  <option value="price-asc">Price: Low to High</option>
+                  <option value="price-desc">Price: High to Low</option>
+                  <option value="name">Name A - Z</option>
+                </select>
+              </div>
+
+              {/* In Stock Only Checkbox */}
+              <label className="flex items-center gap-2 cursor-pointer text-zinc-400 hover:text-zinc-200 select-none">
+                <input
+                  type="checkbox"
+                  checked={onlyInStock}
+                  onChange={(e) => setOnlyInStock(e.target.checked)}
+                  className="w-4 h-4 rounded border-zinc-700 bg-zinc-800 text-amber-500 focus:ring-amber-500/50"
+                />
+                <span>In Stock</span>
+              </label>
+            </div>
+          </div>
+
+        </div>
+
+        {/* Product Grid */}
+        {filteredProducts.length === 0 ? (
+          <div className="bg-zinc-900/50 border border-zinc-800 rounded-2xl p-8 sm:p-12 text-center my-8">
+            <AlertCircle className="w-10 h-10 text-amber-500 mx-auto mb-3 opacity-80" />
+            <h3 className="text-lg sm:text-xl font-bold text-white">No parts found matching criteria</h3>
+            <p className="text-sm text-zinc-400 mt-1 max-w-sm mx-auto">
+              Try adjusting your search query, clearing filters or searching for alternative JDM performance brands.
+            </p>
+            <button
+              onClick={() => { setSearchQuery(''); setSelectedCategory('All'); setSelectedBrand('All'); setOnlyInStock(false); }}
+              className="mt-4 px-4 py-2 bg-amber-500 text-zinc-950 font-bold text-sm rounded-xl hover:bg-amber-400"
+            >
+              Reset All Filters
+            </button>
+          </div>
+        ) : (
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-3 gap-3 sm:gap-6">
+            {filteredProducts.map((product) => {
+              const isAdded = addedIds[product.id];
+              return (
+                <div
+                  key={product.id}
+                  className="bg-zinc-900/90 border border-zinc-800 hover:border-zinc-700 rounded-2xl overflow-hidden flex flex-col justify-between transition-all duration-300 group hover:shadow-xl"
+                >
+                  <div>
+                    {/* Image Area */}
+                    <div className="relative h-36 sm:h-56 bg-zinc-950 overflow-hidden cursor-pointer" onClick={() => onViewProduct(product)}>
+                      <img
+                        src={product.image || 'https://images.unsplash.com/photo-1617814076367-b759c7d7e738?auto=format&fit=crop&q=80&w=800'}
+                        alt={product.name}
+                        referrerPolicy="no-referrer"
+                        onError={(e) => {
+                          (e.target as HTMLImageElement).src = 'https://images.unsplash.com/photo-1617814076367-b759c7d7e738?auto=format&fit=crop&q=80&w=800';
+                        }}
+                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500 opacity-90"
+                      />
+                      <div className="absolute inset-0 bg-gradient-to-t from-zinc-950 via-transparent to-transparent opacity-60" />
+
+                      {/* Brand Badge */}
+                      <span className="absolute top-2 left-2 sm:top-3 sm:left-3 bg-zinc-950/90 border border-zinc-800 text-amber-500 font-mono font-bold text-[11px] sm:text-[12px] px-2 py-0.5 sm:px-2.5 sm:py-1 rounded-md backdrop-blur-md">
+                        {product.brand}
+                      </span>
+
+                      {/* Featured Badge */}
+                      {product.featured && (
+                        <span className="absolute top-2 right-2 sm:top-3 sm:right-3 bg-pink-600/90 text-white font-mono font-extrabold text-[10px] sm:text-[11px] px-1.5 sm:px-2 py-0.5 rounded-xs uppercase tracking-wider backdrop-blur-md">
+                          HOT
+                        </span>
+                      )}
+
+                      {/* Stock Status Tag */}
+                      <div className="absolute bottom-2 left-2 sm:bottom-3 sm:left-3 flex items-center gap-1 sm:gap-1.5 bg-zinc-950/80 px-2 sm:px-2.5 py-0.5 sm:py-1 rounded-full text-[10px] sm:text-[11px] font-mono backdrop-blur-md">
+                        <span className={`w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full ${product.stock > 0 ? 'bg-emerald-400' : 'bg-amber-500'}`} />
+                        <span className={product.stock > 0 ? 'text-zinc-300' : 'text-amber-400 font-bold'}>
+                          {product.stock > 0 ? `${product.stock} in stock` : '0 in stock (Out of Stock)'}
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Card Body */}
+                    <div className="p-3 sm:p-5 space-y-2 sm:space-y-3">
+                      <div>
+                        <p className="text-[10px] sm:text-[11px] font-mono uppercase text-amber-500 tracking-wider">
+                          {product.category}
+                        </p>
+                        <h3
+                          onClick={() => onViewProduct(product)}
+                          className="text-sm sm:text-lg font-bold text-white hover:text-amber-500 cursor-pointer transition-colors line-clamp-1 mt-0.5"
+                        >
+                          {product.name}
+                        </h3>
+                      </div>
+
+                      <p className="text-[12px] sm:text-sm text-zinc-400 line-clamp-2 leading-tight sm:leading-relaxed">
+                        {product.description}
+                      </p>
+
+                      {/* Fitment info */}
+                      <div className="text-[11px] sm:text-[12px] font-mono text-zinc-400 bg-zinc-950/80 px-2 sm:px-2.5 py-1 sm:py-1.5 rounded-lg border border-zinc-800/80 line-clamp-1">
+                        <span className="text-zinc-500">FITMENT:</span> {product.fitment}
+                      </div>
+
+                      {/* Price Tag */}
+                      <div className="pt-1 flex items-baseline gap-1">
+                        <span className="text-xl sm:text-3xl font-mono font-black text-white">₱{product.price.toLocaleString()}</span>
+                        <span className="text-[11px] sm:text-sm text-zinc-500 font-mono">PHP</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Card Actions */}
+                  <div className="p-3 sm:p-5 pt-0 space-y-2">
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => handleAddCart(product)}
+                        disabled={product.stock <= 0}
+                        id={`add-cart-${product.id}`}
+                        className={`flex-1 flex items-center justify-center gap-1.5 sm:gap-2 font-bold py-2 sm:py-2.5 px-2 sm:px-3 rounded-xl text-[11px] sm:text-sm uppercase tracking-wider transition-all active:scale-95 ${
+                          product.stock <= 0
+                            ? 'bg-zinc-800 text-zinc-500 cursor-not-allowed'
+                            : isAdded
+                            ? 'bg-emerald-500 text-zinc-950 font-black'
+                            : 'bg-white hover:bg-zinc-100 text-zinc-950 shadow-md shadow-white/5'
+                        }`}
+                      >
+                        {isAdded ? (
+                          <>
+                            <Check className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                            <span>Added</span>
+                          </>
+                        ) : (
+                          <>
+                            <ShoppingBag className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                            <span>Add to Cart</span>
+                          </>
+                        )}
+                      </button>
+
+                      <button
+                        onClick={() => onViewProduct(product)}
+                        className="p-2.5 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 rounded-xl transition-colors"
+                        title="View Full Specs"
+                      >
+                        <Eye className="w-4 h-4" />
+                      </button>
+                    </div>
+
+                    {/* Admin Specific Actions */}
+                    {userRole === 'admin' && (
+                      <div className="pt-2 border-t border-zinc-800/80 flex items-center justify-between text-sm">
+                        <span className="text-[11px] font-mono text-amber-500 font-bold">ADMIN CONTROLS</span>
+                        <div className="flex items-center gap-2">
+                          {onEditProduct && (
+                            <button
+                              onClick={() => onEditProduct(product)}
+                              className="px-2 py-1 bg-zinc-800 hover:bg-zinc-700 text-amber-400 rounded flex items-center gap-1 font-mono text-[12px]"
+                            >
+                              <Edit3 className="w-3 h-3" /> Edit
+                            </button>
+                          )}
+                          {onDeleteProduct && (
+                            <button
+                              onClick={() => onDeleteProduct(product.id)}
+                              className="px-2 py-1 bg-red-950/60 hover:bg-red-900/80 text-red-400 rounded flex items-center gap-1 font-mono text-[12px] border border-red-800/50"
+                            >
+                              <Trash2 className="w-3 h-3" /> Delete
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                </div>
+              );
+            })}
+          </div>
+        )}
+
+      </div>
+    </section>
+  );
+};
