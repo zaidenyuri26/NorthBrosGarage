@@ -57,22 +57,27 @@ export const Navbar: React.FC<NavbarProps> = ({
       )}
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex items-center justify-between h-20 gap-4">
+        <div className="flex items-center justify-between h-16 sm:h-20 gap-2 sm:gap-4">
           
           {/* Brand Logo */}
           <button 
             onClick={() => { setActiveSection('home'); setMobileMenuOpen(false); }}
-            className="flex items-center gap-3 text-left focus:outline-none group"
+            className="flex items-center gap-2.5 sm:gap-3 text-left focus:outline-none group shrink-0 transition-transform active:scale-95"
             id="nav-logo-btn"
           >
             {siteSettings?.logoUrl ? (
-              <img src={siteSettings.logoUrl} alt={brandName} className="h-10 w-auto object-contain rounded-lg" />
+              <img src={siteSettings.logoUrl} alt={brandName} className="h-8 sm:h-10 w-auto object-contain rounded-lg shadow-sm" />
             ) : (
-              <div className="p-2 bg-gradient-to-br from-amber-600/15 to-amber-500/15 border border-amber-500/30 rounded-xl group-hover:border-amber-400 transition-colors">
-                <Wrench className="w-6 h-6 text-amber-500 group-hover:rotate-12 transition-transform" />
+              <div className="p-1.5 sm:p-2 bg-gradient-to-br from-amber-500/20 via-zinc-900 to-zinc-950 border border-amber-500/40 rounded-xl group-hover:border-amber-400 group-hover:shadow-[0_0_12px_rgba(229,168,35,0.3)] transition-all">
+                <Wrench className="w-5 h-5 sm:w-6 sm:h-6 text-[#e5a823] group-hover:rotate-12 transition-transform" />
               </div>
             )}
-            <BrandHeader size="sm" brandName={brandName} brandSubtitle={siteSettings?.brandSubtitle} />
+            <BrandHeader 
+              size="sm" 
+              brandName={brandName || 'NorthBros'} 
+              brandSubtitle={siteSettings?.brandSubtitle || 'GARAGE'} 
+              className="origin-left" 
+            />
           </button>
 
           {/* Search Bar - Desktop */}
@@ -100,13 +105,21 @@ export const Navbar: React.FC<NavbarProps> = ({
           {/* Desktop Nav Links */}
           <nav className="hidden lg:flex items-center gap-6 text-base font-medium text-zinc-300">
             <button
-              onClick={() => setActiveSection('parts')}
+              onClick={() => {
+                setActiveSection('parts');
+                const el = document.getElementById('performance-parts');
+                if (el) el.scrollIntoView({ behavior: 'smooth' });
+              }}
               className={`hover:text-amber-500 transition-colors ${activeSection === 'parts' ? 'text-amber-400 font-bold' : ''}`}
             >
               Performance Parts
             </button>
             <button
-              onClick={() => setActiveSection('services')}
+              onClick={() => {
+                setActiveSection('services');
+                const el = document.getElementById('services-section');
+                if (el) el.scrollIntoView({ behavior: 'smooth' });
+              }}
               className={`hover:text-amber-500 transition-colors ${activeSection === 'services' ? 'text-amber-400 font-bold' : ''}`}
             >
               Garage Services
@@ -200,13 +213,23 @@ export const Navbar: React.FC<NavbarProps> = ({
       {mobileMenuOpen && (
         <div className="lg:hidden bg-zinc-950 border-b border-zinc-800 px-4 py-4 space-y-3 text-left">
           <button
-            onClick={() => { setActiveSection('parts'); setMobileMenuOpen(false); }}
+            onClick={() => { 
+              setActiveSection('parts'); 
+              setMobileMenuOpen(false);
+              const el = document.getElementById('performance-parts');
+              if (el) el.scrollIntoView({ behavior: 'smooth' });
+            }}
             className="block w-full text-left py-2 text-base text-zinc-300 font-medium hover:text-amber-500"
           >
             Performance Parts Catalog
           </button>
           <button
-            onClick={() => { setActiveSection('services'); setMobileMenuOpen(false); }}
+            onClick={() => { 
+              setActiveSection('services'); 
+              setMobileMenuOpen(false);
+              const el = document.getElementById('services-section');
+              if (el) el.scrollIntoView({ behavior: 'smooth' });
+            }}
             className="block w-full text-left py-2 text-base text-zinc-300 font-medium hover:text-amber-500"
           >
             Garage Services & Tuning

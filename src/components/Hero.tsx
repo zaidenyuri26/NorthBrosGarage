@@ -1,7 +1,6 @@
 import React from 'react';
-import { Search, ChevronRight, Zap, Flame, ChevronLeft } from 'lucide-react';
-import { BrandBadgesBar } from './BrandHeader';
-import { FitmentSelector, SelectedVehicle } from './FitmentSelector';
+import { Search, ChevronRight, ChevronLeft } from 'lucide-react';
+import { BrandBadgesBar, NorthBrosAngledEmblem, BrandHeader } from './BrandHeader';
 import { Product, SiteSettings } from '../types';
 import { MediaShowcase } from './MediaShowcase';
 
@@ -10,10 +9,6 @@ interface HeroProps {
   onExploreServices: () => void;
   searchQuery: string;
   setSearchQuery: (query: string) => void;
-  onSelectCategory: (category: string) => void;
-  selectedVehicle: SelectedVehicle | null;
-  onSelectVehicle: (vehicle: SelectedVehicle | null) => void;
-  onFilterFitment: (modelKeyword: string) => void;
   siteSettings?: SiteSettings;
   products?: Product[];
 }
@@ -23,10 +18,6 @@ export const Hero: React.FC<HeroProps> = ({
   onExploreServices,
   searchQuery,
   setSearchQuery,
-  onSelectCategory,
-  selectedVehicle,
-  onSelectVehicle,
-  onFilterFitment,
   siteSettings,
   products = [],
 }) => {
@@ -61,18 +52,7 @@ export const Hero: React.FC<HeroProps> = ({
     return () => clearInterval(interval);
   }, [allHeroImages]);
 
-  const getCategoryCount = (categoryKey: string) => {
-    return products.filter(p => p.category?.toLowerCase().includes(categoryKey.toLowerCase())).length;
-  };
-
   const inStockCount = products.filter(p => p.stock > 0).length;
-
-  const quickCategories = [
-    { name: 'Exhaust & Turbo', count: `${getCategoryCount('Exhaust')} Parts`, icon: '🔥' },
-    { name: 'Suspension & Brakes', count: `${getCategoryCount('Suspension') + getCategoryCount('Brake')} Parts`, icon: '⚡' },
-    { name: 'Interior & Seats', count: `${getCategoryCount('Interior') + getCategoryCount('Seat')} Parts`, icon: '🏎️' },
-    { name: 'Wheels & Tires', count: `${getCategoryCount('Wheel') + getCategoryCount('Tire')} Specs`, icon: '🏁' },
-  ];
 
   return (
     <div className="relative overflow-hidden bg-transparent text-left">
@@ -97,44 +77,44 @@ export const Hero: React.FC<HeroProps> = ({
             </div>
 
             {/* Headline */}
-            <h1 className="text-3xl sm:text-4xl lg:text-5xl font-black tracking-tight text-white uppercase italic font-mono leading-tight">
+            <h1 className="text-3xl sm:text-4xl lg:text-5xl font-black tracking-tight text-white uppercase italic font-mono leading-[1.1] sm:leading-tight">
               {title1} <br />
               <span className="text-amber-400">
                 {title2}
               </span>
             </h1>
 
-            <p className="text-zinc-400 text-base sm:text-lg leading-relaxed max-w-xl font-sans">
+            <p className="text-zinc-400 text-sm sm:text-lg leading-relaxed max-w-xl font-sans">
               {description}
             </p>
 
             {/* Quick Hero Search Bar */}
-            <div className="bg-zinc-900/90 p-2 rounded-2xl border border-zinc-800 focus-within:border-amber-500/80 shadow-2xl transition-all max-w-xl">
-              <div className="flex items-center gap-2">
-                <Search className="w-5 h-5 text-amber-500 ml-3 shrink-0" />
+            <div className="bg-zinc-900/90 p-1.5 sm:p-2 rounded-2xl border border-zinc-800 focus-within:border-amber-500/80 shadow-2xl transition-all max-w-xl">
+              <div className="flex items-center gap-1.5 sm:gap-2">
+                <Search className="w-4 h-4 sm:w-5 sm:h-5 text-amber-500 ml-2 sm:ml-3 shrink-0" />
                 <input
                   type="text"
-                  placeholder="Search specific parts, part numbers or car model (e.g. GT-R, Civic FK8)..."
+                  placeholder="Search parts, car model..."
                   value={searchQuery || ''}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full bg-transparent text-base text-zinc-100 placeholder-zinc-500 focus:outline-none py-2 font-mono"
+                  className="w-full bg-transparent text-sm sm:text-base text-zinc-100 placeholder-zinc-500 focus:outline-none py-2 font-mono"
                 />
                 <button
                   onClick={onExploreParts}
-                  className="bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-zinc-950 font-black px-5 py-2.5 rounded-xl text-sm uppercase tracking-wider shrink-0 transition-all flex items-center gap-1.5"
+                  className="bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-zinc-950 font-black px-3 sm:px-5 py-2 sm:py-2.5 rounded-xl text-[12px] sm:text-sm uppercase tracking-wider shrink-0 transition-all flex items-center gap-1 sm:gap-1.5"
                 >
-                  <span>Search</span>
+                  <span className="hidden xs:inline">Search</span>
                   <ChevronRight className="w-4 h-4" />
                 </button>
               </div>
             </div>
 
             {/* Action Buttons */}
-            <div className="flex flex-wrap items-center gap-4 pt-2">
+            <div className="flex flex-col xs:flex-row items-stretch xs:items-center gap-3 sm:gap-4 pt-2">
               <button
                 onClick={onExploreParts}
                 id="hero-explore-parts-btn"
-                className="bg-white hover:bg-zinc-100 text-zinc-950 font-black px-7 py-3.5 rounded-xl text-base uppercase tracking-wider shadow-lg shadow-white/5 active:scale-95 transition-all flex items-center gap-2"
+                className="bg-white hover:bg-zinc-100 text-zinc-950 font-black px-6 py-3 sm:px-7 sm:py-3.5 rounded-xl text-sm sm:text-base uppercase tracking-wider shadow-lg shadow-white/5 active:scale-95 transition-all flex items-center justify-center gap-2"
               >
                 <span>{primaryBtn}</span>
                 <ChevronRight className="w-4 h-4" />
@@ -143,7 +123,7 @@ export const Hero: React.FC<HeroProps> = ({
               <button
                 onClick={onExploreServices}
                 id="hero-explore-services-btn"
-                className="bg-zinc-900 border border-zinc-700 hover:border-zinc-500 text-zinc-200 font-bold px-6 py-3.5 rounded-xl text-base uppercase tracking-wider transition-all hover:bg-zinc-800"
+                className="bg-zinc-900 border border-zinc-700 hover:border-zinc-500 text-zinc-200 font-bold px-6 py-3 sm:py-3.5 rounded-xl text-sm sm:text-base uppercase tracking-wider transition-all hover:bg-zinc-800 text-center"
               >
                 {secondaryBtn}
               </button>
@@ -185,7 +165,7 @@ export const Hero: React.FC<HeroProps> = ({
               
               {/* Image or Clean Garage Showcase */}
               {allHeroImages.length > 0 ? (
-                <div className="relative w-full h-[400px] sm:h-[500px] lg:h-[600px] overflow-hidden">
+                <div className="relative w-full h-[300px] sm:h-[500px] lg:h-[600px] overflow-hidden">
                   {allHeroImages.map((src, idx) => (
                     <div
                       key={src + '-' + idx}
@@ -232,12 +212,33 @@ export const Hero: React.FC<HeroProps> = ({
                   )}
                 </div>
               ) : (
-                <div className="w-full h-[400px] sm:h-[500px] lg:h-[600px] bg-gradient-to-br from-zinc-900 via-zinc-950 to-black flex flex-col items-center justify-center p-8 text-center border border-zinc-800">
-                  <div className="p-4 bg-amber-500/10 border border-amber-500/30 rounded-2xl text-amber-400 mb-3 animate-pulse">
-                    <Zap className="w-8 h-8" />
+                <div className="w-full h-[320px] sm:h-[500px] lg:h-[600px] bg-zinc-950 relative flex flex-col items-center justify-center p-6 text-center border border-zinc-800/80 overflow-hidden">
+                  {/* Dynamic Angled Split Background Lines */}
+                  <div className="absolute inset-0 bg-gradient-to-tr from-zinc-950 via-zinc-900 to-zinc-950 opacity-90" />
+                  
+                  {/* Slanted Graphic Accents */}
+                  <div className="absolute -left-20 -top-20 w-80 h-full bg-gradient-to-r from-amber-500/10 to-transparent transform -skew-x-[20deg] pointer-events-none" />
+                  <div className="absolute -right-20 -bottom-20 w-80 h-full bg-gradient-to-l from-amber-500/10 to-transparent transform -skew-x-[20deg] pointer-events-none" />
+                  
+                  {/* Center Angled White Emblem from Reference Photo */}
+                  <div className="relative z-10 space-y-6 max-w-md mx-auto">
+                    <BrandHeader 
+                      size="lg" 
+                      variant="badge" 
+                      brandName={siteSettings?.brandName || 'NorthBros'} 
+                      brandSubtitle={siteSettings?.brandSubtitle || 'GARAGE'} 
+                    />
+
+                    <div className="space-y-2 pt-2">
+                      <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-zinc-900/90 border border-amber-500/30 text-amber-400 text-xs font-mono">
+                        <span className="w-2 h-2 rounded-full bg-amber-500 animate-ping" />
+                        <span>OFFICIAL JDM WORKSHOP & SHOWROOM</span>
+                      </div>
+                      <p className="font-mono text-xs text-zinc-400 max-w-sm mx-auto">
+                        Precision Tuning • JDM Performance Imports • Track Build Engineering
+                      </p>
+                    </div>
                   </div>
-                  <h4 className="font-mono text-sm font-bold text-amber-400 uppercase tracking-widest">NORTHBROS MOTORSPORT</h4>
-                  <p className="font-mono text-[12px] text-zinc-500 mt-1 max-w-xs">Add your banner image link or upload photo in Admin Dashboard &rarr; Site Settings</p>
                 </div>
               )}
 
@@ -260,38 +261,6 @@ export const Hero: React.FC<HeroProps> = ({
             </div>
           </div>
 
-        </div>
-
-        {/* Quick Category Selector Chips */}
-        <div className="mt-10 pt-8 border-t border-zinc-800/80 space-y-6">
-          <div>
-            <p className="text-sm font-mono text-zinc-400 uppercase tracking-widest mb-3 text-left">Top Automotive Categories</p>
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-left">
-              {quickCategories.map((cat) => (
-                <button
-                  key={cat.name}
-                  onClick={() => onSelectCategory(cat.name)}
-                  className="flex items-center justify-between p-3.5 bg-zinc-900/60 hover:bg-zinc-800/80 border border-zinc-800 hover:border-amber-500/50 rounded-xl text-left transition-all group"
-                >
-                  <div className="flex items-center gap-2.5">
-                    <span className="text-xl">{cat.icon}</span>
-                    <div className="text-left">
-                      <p className="text-sm font-bold text-zinc-200 group-hover:text-amber-400 transition-colors">{cat.name}</p>
-                      <p className="text-[11px] text-zinc-500 font-mono">{cat.count}</p>
-                    </div>
-                  </div>
-                  <ChevronRight className="w-4 h-4 text-zinc-600 group-hover:text-amber-400 group-hover:translate-x-0.5 transition-all" />
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* Interactive Vehicle Fitment Finder */}
-          <FitmentSelector
-            selectedVehicle={selectedVehicle}
-            onSelectVehicle={onSelectVehicle}
-            onFilterFitment={onFilterFitment}
-          />
         </div>
 
       </div>

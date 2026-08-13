@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { ImageInput } from './ImageInput';
+import { renderBrandBadgeNode } from './BrandBadge';
+import { BrandHeader } from './BrandHeader';
 import {
   Users,
   Package,
@@ -128,11 +130,13 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const [prodBrand, setProdBrand] = useState('HKS');
   const [prodCategory, setProdCategory] = useState('Exhaust & Turbo');
   const [prodPrice, setProdPrice] = useState('1200');
+  const [prodShippingFee, setProdShippingFee] = useState('100');
   const [prodImage, setProdImage] = useState('');
   const [prodDesc, setProdDesc] = useState('');
   const [prodStock, setProdStock] = useState('10');
   const [prodFitment, setProdFitment] = useState('Universal JDM');
   const [prodFeatured, setProdFeatured] = useState(false);
+  const [isBrandDropdownOpen, setIsBrandDropdownOpen] = useState(false);
 
   // Form states for Service Add/Edit
   const [servTitle, setServTitle] = useState('');
@@ -226,6 +230,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     setProdBrand('HKS');
     setProdCategory('Exhaust & Turbo');
     setProdPrice('1200');
+    setProdShippingFee('100');
     setProdImage('');
     setProdDesc('High-performance JDM component engineered for maximum flow and thermal durability.');
     setProdStock('10');
@@ -240,6 +245,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     setProdBrand(p.brand || '');
     setProdCategory(p.category || '');
     setProdPrice(p.price !== undefined && p.price !== null ? p.price.toString() : '');
+    setProdShippingFee(p.shippingFee !== undefined && p.shippingFee !== null ? p.shippingFee.toString() : '0');
     setProdImage(p.image || '');
     setProdDesc(p.description || '');
     setProdStock(p.stock !== undefined && p.stock !== null ? p.stock.toString() : '');
@@ -327,6 +333,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     if (!prodName || !prodPrice) return;
 
     const priceNum = parseFloat(prodPrice) || 0;
+    const shippingFeeNum = parseFloat(prodShippingFee) || 0;
     const stockNum = parseInt(prodStock) || 0;
 
     const payload = {
@@ -334,6 +341,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       brand: prodBrand,
       category: prodCategory,
       price: priceNum,
+      shippingFee: shippingFeeNum,
       image: prodImage || 'https://images.unsplash.com/photo-1617814076367-b759c7d7e738?auto=format&fit=crop&q=80&w=800',
       description: prodDesc,
       stock: stockNum,
@@ -703,6 +711,30 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   <label htmlFor="announcementActive" className="text-zinc-300 font-mono text-sm cursor-pointer">
                     Display Top Announcement Bar
                   </label>
+                </div>
+
+                {/* Live Brand Header Preview */}
+                <div className="md:col-span-2 pt-2 border-t border-zinc-800/80">
+                  <label className="font-mono text-zinc-400 block mb-2 text-xs uppercase tracking-wider">Live Header Brand & Badge Preview</label>
+                  <div className="p-4 bg-zinc-950 border border-zinc-800 rounded-xl flex flex-col sm:flex-row items-center justify-around gap-4">
+                    <div className="flex flex-col items-center">
+                      <span className="text-[10px] text-zinc-500 font-mono uppercase mb-1">Header Navbar Logo</span>
+                      <BrandHeader 
+                        size="md" 
+                        brandName={siteSettingsForm.brandName || 'NorthBros'} 
+                        brandSubtitle={siteSettingsForm.brandSubtitle || 'GARAGE'} 
+                      />
+                    </div>
+                    <div className="flex flex-col items-center">
+                      <span className="text-[10px] text-zinc-500 font-mono uppercase mb-1">Angled Showroom Badge</span>
+                      <BrandHeader 
+                        size="sm" 
+                        variant="badge"
+                        brandName={siteSettingsForm.brandName || 'NorthBros'} 
+                        brandSubtitle={siteSettingsForm.brandSubtitle || 'GARAGE'} 
+                      />
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
@@ -1199,7 +1231,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
               <div className="bg-zinc-900 p-3.5 sm:p-5 rounded-2xl border border-zinc-800 space-y-1">
                 <p className="text-[11px] sm:text-sm font-mono text-zinc-400 uppercase">Parts Sales Revenue</p>
-                <p className="text-2xl sm:text-3xl font-mono font-black text-amber-400">${totalRevenue.toLocaleString()}</p>
+                <p className="text-2xl sm:text-3xl font-mono font-black text-amber-400">₱{totalRevenue.toLocaleString()}</p>
                 <p className="text-[11px] sm:text-[12px] text-zinc-500">{orders.length} Total orders</p>
               </div>
 
@@ -1262,7 +1294,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   {orders.slice(0, 4).map((o) => (
                     <div key={o.id} className="p-3 bg-zinc-950 rounded-xl border border-zinc-800 flex items-center justify-between text-sm">
                       <div>
-                        <p className="font-bold text-white">{o.customerName} — <span className="text-amber-400">${o.totalAmount.toLocaleString()}</span></p>
+                        <p className="font-bold text-white">{o.customerName} — <span className="text-amber-400">₱{o.totalAmount.toLocaleString()}</span></p>
                         <p className="text-zinc-500 font-mono text-[12px]">{o.items.length} Parts items | {o.shippingAddress?.city}</p>
                       </div>
                       <span className="px-2 py-0.5 rounded text-[11px] font-mono uppercase bg-emerald-500/20 text-emerald-300">
@@ -1327,7 +1359,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                           </td>
                           <td className="p-4 font-mono font-bold text-amber-400">{p.brand}</td>
                           <td className="p-4">{p.category}</td>
-                          <td className="p-4 font-mono font-bold text-white">${p.price.toLocaleString()}</td>
+                          <td className="p-4 font-mono font-bold text-white">₱{p.price.toLocaleString()}</td>
                           <td className="p-4 font-mono">{p.stock} units</td>
                           <td className="p-4 text-right space-x-2">
                             <button
@@ -1404,7 +1436,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                             </div>
                           </td>
                           <td className="p-4 font-mono">{s.estimatedTime}</td>
-                          <td className="p-4 font-mono font-bold text-amber-400">${s.priceStartingFrom}</td>
+                          <td className="p-4 font-mono font-bold text-amber-400">₱{s.priceStartingFrom}</td>
                           <td className="p-4 font-mono">{s.features?.length || 0} items</td>
                           <td className="p-4 text-right space-x-2">
                             <button
@@ -1808,8 +1840,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
       {/* Product Edit/Create Modal Overlay */}
       {(isCreatingProduct || editingProduct) && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-zinc-950/80 backdrop-blur-md">
-          <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-6 max-w-lg w-full space-y-4 text-sm">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-zinc-950/80 backdrop-blur-md overflow-y-auto">
+          <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-6 max-w-lg w-full space-y-4 text-sm my-8 max-h-[90vh] overflow-y-auto">
             <h3 className="text-xl font-mono font-bold text-white uppercase">
               {editingProduct ? 'Edit Product Item' : 'Add New Product to Store'}
             </h3>
@@ -1827,21 +1859,45 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
               </div>
 
               <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="text-zinc-400 font-mono">Brand</label>
-                  <select
-                    required
-                    value={prodBrand || ''}
-                    onChange={(e) => setProdBrand(e.target.value)}
-                    className="w-full bg-zinc-950 border border-zinc-800 rounded-xl p-2 text-zinc-100"
-                  >
-                    {PRODUCT_BRANDS.map((brand) => (
-                      <option key={brand} value={brand}>
-                        {brand}
-                      </option>
-                    ))}
-                  </select>
-                </div>
+              <div className="relative">
+                <label className="text-zinc-400 font-mono block mb-2">Brand</label>
+                <button
+                  type="button"
+                  onClick={() => setIsBrandDropdownOpen(!isBrandDropdownOpen)}
+                  className="w-full bg-zinc-950 border border-zinc-800 hover:border-amber-500/80 rounded-xl p-2.5 text-zinc-100 flex items-center justify-between transition-all"
+                >
+                  <div className="flex items-center gap-2">
+                    {renderBrandBadgeNode(prodBrand || PRODUCT_BRANDS[0], 'sm')}
+                  </div>
+                  <span className="text-xs text-zinc-400 font-mono">▼</span>
+                </button>
+
+                {isBrandDropdownOpen && (
+                  <div className="absolute z-50 mt-2 w-full bg-zinc-950 border border-zinc-800 rounded-xl shadow-2xl max-h-60 overflow-y-auto no-scrollbar p-1.5 space-y-1">
+                    {PRODUCT_BRANDS.map((brand) => {
+                      const isSelected = prodBrand === brand;
+                      return (
+                        <button
+                          key={brand}
+                          type="button"
+                          onClick={() => {
+                            setProdBrand(brand);
+                            setIsBrandDropdownOpen(false);
+                          }}
+                          className={`w-full text-left p-2.5 rounded-lg flex items-center justify-between transition-all ${
+                            isSelected
+                              ? 'bg-amber-500/20 border border-amber-500/60'
+                              : 'bg-zinc-900/60 border border-transparent hover:bg-zinc-900 hover:border-zinc-700'
+                          }`}
+                        >
+                          {renderBrandBadgeNode(brand, 'sm')}
+                          {isSelected && <span className="text-amber-400 text-xs font-mono font-bold">ACTIVE</span>}
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
                 <div>
                   <label className="text-zinc-400 font-mono">Category</label>
                   <select
@@ -1859,6 +1915,15 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 </div>
               </div>
 
+              <div className="space-y-1">
+                <ImageInput
+                  label="Product Photo / Image"
+                  value={prodImage}
+                  onChange={(url) => setProdImage(url)}
+                  placeholder="https://... or upload a photo"
+                />
+              </div>
+
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="text-zinc-400 font-mono">Price (₱ PHP)</label>
@@ -1871,6 +1936,19 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   />
                 </div>
                 <div>
+                  <label className="text-zinc-400 font-mono">Shipping Fee (₱ PHP)</label>
+                  <input
+                    type="number"
+                    required
+                    value={prodShippingFee || ''}
+                    onChange={(e) => setProdShippingFee(e.target.value)}
+                    className="w-full bg-zinc-950 border border-zinc-800 rounded-xl p-2 text-zinc-100"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
                   <label className="text-zinc-400 font-mono">Stock Units</label>
                   <input
                     type="number"
@@ -1880,24 +1958,15 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                     className="w-full bg-zinc-950 border border-zinc-800 rounded-xl p-2 text-zinc-100"
                   />
                 </div>
-              </div>
-
-              <div>
-                <ImageInput
-                  label="Product Photo / Image"
-                  value={prodImage || ''}
-                  onChange={(val) => setProdImage(val)}
-                />
-              </div>
-
-              <div>
-                <label className="text-zinc-400 font-mono">Fitment Specs</label>
-                <input
-                  type="text"
-                  value={prodFitment || ''}
-                  onChange={(e) => setProdFitment(e.target.value)}
-                  className="w-full bg-zinc-950 border border-zinc-800 rounded-xl p-2 text-zinc-100"
-                />
+                <div>
+                  <label className="text-zinc-400 font-mono">Fitment Specs</label>
+                  <input
+                    type="text"
+                    value={prodFitment || ''}
+                    onChange={(e) => setProdFitment(e.target.value)}
+                    className="w-full bg-zinc-950 border border-zinc-800 rounded-xl p-2 text-zinc-100"
+                  />
+                </div>
               </div>
 
               <div>
@@ -1910,17 +1979,30 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 />
               </div>
 
+              <div className="flex items-center gap-2 pt-1">
+                <input
+                  type="checkbox"
+                  id="prodFeatured"
+                  checked={prodFeatured}
+                  onChange={(e) => setProdFeatured(e.target.checked)}
+                  className="rounded border-zinc-700 bg-zinc-950 text-amber-500 focus:ring-amber-500"
+                />
+                <label htmlFor="prodFeatured" className="text-xs font-mono text-zinc-300 cursor-pointer">
+                  Feature this product on homepage / top of catalog
+                </label>
+              </div>
+
               <div className="flex items-center justify-between pt-2">
                 <button
                   type="button"
                   onClick={() => { setIsCreatingProduct(false); setEditingProduct(null); }}
-                  className="px-4 py-2 bg-zinc-800 text-zinc-300 rounded-xl"
+                  className="px-4 py-2 bg-zinc-800 text-zinc-300 rounded-xl hover:bg-zinc-700 transition-colors"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="px-6 py-2 bg-amber-500 text-zinc-950 font-bold rounded-xl"
+                  className="px-6 py-2 bg-amber-500 text-zinc-950 font-bold rounded-xl hover:bg-amber-400 transition-colors"
                 >
                   Save Product
                 </button>

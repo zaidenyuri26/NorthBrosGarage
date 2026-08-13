@@ -44,7 +44,7 @@ export const GarageHighlights: React.FC<GarageHighlightsProps> = ({ siteSettings
           <div className="lg:col-span-7 relative">
             <div className="relative rounded-2xl overflow-hidden border border-zinc-800 shadow-2xl bg-zinc-950 group">
               {allAboutImages.length > 0 ? (
-                <div className="relative w-full h-[500px] sm:h-[650px] overflow-hidden">
+                <div className="relative w-full h-[320px] sm:h-[500px] lg:h-[650px] overflow-hidden">
                   {allAboutImages.map((src, idx) => (
                     <div
                       key={src + '-' + idx}
@@ -91,7 +91,7 @@ export const GarageHighlights: React.FC<GarageHighlightsProps> = ({ siteSettings
                   )}
                 </div>
               ) : (
-                <div className="w-full h-[500px] sm:h-[650px] bg-gradient-to-br from-zinc-900 via-zinc-950 to-black flex flex-col items-center justify-center p-8 text-center border border-zinc-800">
+                <div className="w-full h-[320px] sm:h-[500px] lg:h-[650px] bg-gradient-to-br from-zinc-900 via-zinc-950 to-black flex flex-col items-center justify-center p-8 text-center border border-zinc-800">
                   <div className="p-4 bg-amber-500/10 border border-amber-500/30 rounded-2xl text-amber-400 mb-3">
                     <Wrench className="w-8 h-8" />
                   </div>

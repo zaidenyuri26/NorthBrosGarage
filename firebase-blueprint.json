@@ -1,0 +1,171 @@
+{
+  "entities": {
+    "Product": {
+      "title": "Product",
+      "description": "JDM Performance parts in the catalog",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string", "description": "Part name" },
+        "brand": { "type": "string", "description": "Manufacturer" },
+        "category": { "type": "string", "description": "Part category" },
+        "price": { "type": "number", "description": "Price in PHP" },
+        "description": { "type": "string", "description": "Part details" },
+        "fitment": { "type": "string", "description": "Vehicle compatibility" },
+        "stock": { "type": "number", "description": "Inventory count" },
+        "image": { "type": "string", "description": "Product photo URL" },
+        "featured": { "type": "boolean", "description": "Show on home page" },
+        "specs": { "type": "object", "description": "Technical specifications" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["name", "brand", "price"]
+    },
+    "ServiceCategory": {
+      "title": "Service Category",
+      "description": "Workshop services offered",
+      "type": "object",
+      "properties": {
+        "title": { "type": "string" },
+        "description": { "type": "string" },
+        "iconName": { "type": "string" },
+        "estimatedTime": { "type": "string" },
+        "priceStartingFrom": { "type": "number" },
+        "image": { "type": "string" },
+        "features": { "type": "array", "items": { "type": "string" } },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["title", "description"]
+    },
+    "ServiceBooking": {
+      "title": "Service Booking",
+      "description": "Workshop appointment",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "serviceId": { "type": "string" },
+        "serviceTitle": { "type": "string" },
+        "customerName": { "type": "string" },
+        "customerEmail": { "type": "string" },
+        "vehicleInfo": { "type": "string" },
+        "notes": { "type": "string" },
+        "status": { "type": "string", "enum": ["pending", "confirmed", "completed", "cancelled"] },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "serviceId", "customerName"]
+    },
+    "Order": {
+      "title": "Order",
+      "description": "Product purchase record",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "customerName": { "type": "string" },
+        "customerEmail": { "type": "string" },
+        "address": { "type": "string" },
+        "total": { "type": "number" },
+        "status": { "type": "string", "enum": ["pending", "paid", "shipped", "delivered", "cancelled"] },
+        "items": { "type": "array", "items": { "$ref": "#/entities/OrderItem" } },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "total", "items"]
+    },
+    "OrderItem": {
+      "title": "Order Item",
+      "description": "Individual product in an order",
+      "type": "object",
+      "properties": {
+        "productId": { "type": "string" },
+        "name": { "type": "string" },
+        "price": { "type": "number" },
+        "quantity": { "type": "number" }
+      }
+    },
+    "UserProfile": {
+      "title": "User Profile",
+      "description": "User account information",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "email": { "type": "string" },
+        "displayName": { "type": "string" },
+        "role": { "type": "string", "enum": ["admin", "customer"] },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["uid", "email", "role"]
+    },
+    "SiteSettings": {
+      "title": "Site Settings",
+      "description": "Global website configuration",
+      "type": "object",
+      "properties": {
+        "brandName": { "type": "string" },
+        "brandSubtitle": { "type": "string" },
+        "announcementText": { "type": "string" },
+        "announcementEnabled": { "type": "boolean" },
+        "logoUrl": { "type": "string" },
+        "heroBadge": { "type": "string" },
+        "heroTitleLine1": { "type": "string" },
+        "heroTitleLine2": { "type": "string" },
+        "heroDescription": { "type": "string" },
+        "heroBannerImage": { "type": "string" },
+        "heroBannerImages": { "type": "array", "items": { "type": "string" } },
+        "heroPrimaryBtnText": { "type": "string" },
+        "heroSecondaryBtnText": { "type": "string" },
+        "heroQuickTags": { "type": "array", "items": { "type": "string" } },
+        "servicesBadge": { "type": "string" },
+        "servicesTitle": { "type": "string" },
+        "servicesSubtitle": { "type": "string" },
+        "partsBadge": { "type": "string" },
+        "partsTitle": { "type": "string" },
+        "partsSubtitle": { "type": "string" },
+        "tunerShowcaseBadge": { "type": "string" },
+        "tunerShowcaseTitle": { "type": "string" },
+        "tunerShowcaseSubtitle": { "type": "string" },
+        "aboutTitle": { "type": "string" },
+        "aboutDescription": { "type": "string" },
+        "aboutImage": { "type": "string" },
+        "aboutImages": { "type": "array", "items": { "type": "string" } },
+        "footerAbout": { "type": "string" },
+        "contactPhone": { "type": "string" },
+        "contactEmail": { "type": "string" },
+        "contactAddress": { "type": "string" },
+        "operatingHours": { "type": "string" },
+        "socialInstagram": { "type": "string" },
+        "socialYoutube": { "type": "string" },
+        "socialFacebook": { "type": "string" },
+        "socialTwitter": { "type": "string" },
+        "copyrightText": { "type": "string" }
+      }
+    },
+    "GalleryBuild": {
+      "title": "Gallery Build",
+      "description": "Featured car builds in the gallery",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "model": { "type": "string" },
+        "engine": { "type": "string" },
+        "power": { "type": "string" },
+        "color": { "type": "string" },
+        "image": { "type": "string" },
+        "instagram": { "type": "string" },
+        "owner": { "type": "string" },
+        "description": { "type": "string" },
+        "partsKeywords": { "type": "array", "items": { "type": "string" } },
+        "videoUrl": { "type": "string" },
+        "linkUrl": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["name", "model"]
+    }
+  },
+  "firestore": {
+    "/products/{productId}": { "schema": "Product", "description": "Parts catalog items" },
+    "/services/{serviceId}": { "schema": "ServiceCategory", "description": "Workshop service categories" },
+    "/bookings/{bookingId}": { "schema": "ServiceBooking", "description": "Workshop appointments" },
+    "/orders/{orderId}": { "schema": "Order", "description": "Customer purchase records" },
+    "/users/{userId}": { "schema": "UserProfile", "description": "User account profiles" },
+    "/site_settings/main": { "schema": "SiteSettings", "description": "Global site configuration" },
+    "/builds/{buildId}": { "schema": "GalleryBuild", "description": "Featured builds for the showcase gallery" }
+  }
+}

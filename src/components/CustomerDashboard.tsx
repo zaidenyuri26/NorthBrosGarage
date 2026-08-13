@@ -212,9 +212,11 @@ export const CustomerDashboard: React.FC<CustomerDashboardProps> = ({
                               <div className="flex items-center gap-2">
                                 <span className="font-mono font-black text-white text-sm">ORDER #{o.id.slice(-6).toUpperCase()}</span>
                                 <span className={`text-[9px] font-mono font-bold px-2 py-0.5 rounded-full ${
-                                  o.status === 'delivered' ? 'bg-emerald-500/10 text-emerald-500 border border-emerald-500/20' : 'bg-amber-500/10 text-amber-500 border border-amber-500/20'
+                                  ['shipped', 'delivered'].includes(o.status) ? 'bg-emerald-500/10 text-emerald-500 border border-emerald-500/20' : 'bg-amber-500/10 text-amber-500 border border-amber-500/20'
                                 }`}>
-                                  {o.status.replace(/_/g, ' ')}
+                                  {o.status === 'pending' ? 'Pending' : 
+                                   ['accepted', 'preparing', 'ready_to_ship'].includes(o.status) ? 'Processing' : 
+                                   ['shipped', 'delivered'].includes(o.status) ? 'Shipped' : o.status.replace(/_/g, ' ')}
                                 </span>
                               </div>
                               <p className="text-[10px] text-zinc-500 font-mono mt-0.5 uppercase tracking-wider">{o.createdAt ? new Date(o.createdAt).toDateString() : 'N/A'}</p>
@@ -254,24 +256,26 @@ export const CustomerDashboard: React.FC<CustomerDashboardProps> = ({
 
                           <div className="space-y-2">
                             <div className="flex justify-between text-[9px] font-mono uppercase text-zinc-500 tracking-widest">
-                              <span>Order Processed</span>
-                              <span>Ready</span>
-                              <span>Shipped</span>
-                              <span>Delivered</span>
+                              <span className={o.status === 'pending' ? 'text-amber-500 font-bold' : ''}>Pending</span>
+                              <span className={['accepted', 'preparing', 'ready_to_ship'].includes(o.status) ? 'text-amber-500 font-bold' : ''}>Processing</span>
+                              <span className={['shipped', 'delivered'].includes(o.status) ? 'text-amber-500 font-bold' : ''}>Shipped</span>
                             </div>
-                            <div className="relative h-1 bg-zinc-800 rounded-full">
+                            <div className="relative h-1.5 bg-zinc-800 rounded-full overflow-hidden">
                               <div 
-                                className="absolute top-0 left-0 h-full bg-amber-500 transition-all duration-1000 shadow-[0_0_8px_rgba(245,158,11,0.5)]"
+                                className="absolute top-0 left-0 h-full bg-gradient-to-r from-amber-600 to-amber-400 transition-all duration-1000 shadow-[0_0_8px_rgba(245,158,11,0.5)]"
                                 style={{ 
-                                  width: o.status === 'pending' ? '10%' :
-                                         o.status === 'accepted' ? '25%' :
-                                         o.status === 'preparing' ? '45%' :
-                                         o.status === 'ready_to_ship' ? '65%' :
-                                         o.status === 'shipped' ? '85%' :
-                                         o.status === 'delivered' ? '100%' : '0%'
+                                  width: o.status === 'pending' ? '15%' :
+                                         ['accepted', 'preparing', 'ready_to_ship'].includes(o.status) ? '50%' :
+                                         ['shipped', 'delivered'].includes(o.status) ? '100%' : '0%'
                                 }}
                               />
                             </div>
+                            {o.status === 'shipped' && (
+                              <div className="flex items-center gap-1.5 text-[10px] text-emerald-400 font-mono uppercase mt-1">
+                                <Shield className="w-3 h-3" />
+                                <span>Build is en route to your garage</span>
+                              </div>
+                            )}
                           </div>
                         </div>
                       </div>

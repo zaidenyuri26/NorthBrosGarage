@@ -11,13 +11,14 @@ import {
   deleteProduct,
   ensureInitialFirestoreCollectionsExist,
   DEFAULT_SITE_SETTINGS,
-  fetchBuilds
+  fetchBuilds,
+  validateFirestoreConnection
 } from './lib/dbService';
 import { Product, ServiceCategory, CartItem, UserProfile, SiteSettings, GalleryBuild } from './types';
 
 import { Navbar } from './components/Navbar';
 import { Hero } from './components/Hero';
-import { ShopTrustBar } from './components/ShopTrustBar';
+
 import { JdmGallery } from './components/JdmGallery';
 import { GarageHighlights } from './components/GarageHighlights';
 import { FitmentSelector, SelectedVehicle } from './components/FitmentSelector';
@@ -63,18 +64,30 @@ export default function App() {
   useEffect(() => {
     async function initApp() {
       setLoading(true);
-      await ensureInitialFirestoreCollectionsExist();
-      const [prods, servs, sSettings, blds] = await Promise.all([
-        fetchProducts(),
-        fetchServices(),
-        fetchSiteSettings(),
-        fetchBuilds()
-      ]);
-      setProducts(prods);
-      setServices(servs);
-      setSiteSettings(sSettings);
-      setBuilds(blds);
-      setLoading(false);
+      
+      // 1. Validate connection first
+      await validateFirestoreConnection();
+      
+      try {
+        // 2. Ensure collections exist (and seed if needed)
+        await ensureInitialFirestoreCollectionsExist();
+        
+        // 3. Fetch data
+        const [prods, servs, sSettings, blds] = await Promise.all([
+          fetchProducts(),
+          fetchServices(),
+          fetchSiteSettings(),
+          fetchBuilds()
+        ]);
+        setProducts(prods);
+        setServices(servs);
+        setSiteSettings(sSettings);
+        setBuilds(blds);
+      } catch (err) {
+        console.error('Initial app initialization failed:', err);
+      } finally {
+        setLoading(false);
+      }
     }
 
     initApp();
@@ -211,16 +224,11 @@ export default function App() {
           onExploreParts={() => handleSelectCategoryPill('All')}
           searchQuery={searchQuery}
           setSearchQuery={setSearchQuery}
-          onSelectCategory={handleSelectCategoryPill}
-          selectedVehicle={selectedVehicle}
-          onSelectVehicle={setSelectedVehicle}
-          onFilterFitment={(modelKeyword) => setSearchQuery(modelKeyword)}
           siteSettings={siteSettings}
           products={products}
         />
 
-        {/* Enterprise Shop Credentials & Trust Bar */}
-        <ShopTrustBar />
+
 
 
         {/* Parts Store & Catalog */}
@@ -306,7 +314,7 @@ export default function App() {
               <p className="text-sm text-zinc-400">Target Product:</p>
               <p className="text-base font-bold text-amber-400 font-mono break-all">{deletingProduct.name}</p>
               <p className="text-[12px] text-zinc-500 font-mono">
-                Brand: {deletingProduct.brand} | Price: ${deletingProduct.price.toLocaleString()}
+                Brand: {deletingProduct.brand} | Price: ₱{deletingProduct.price.toLocaleString()}
               </p>
             </div>
 

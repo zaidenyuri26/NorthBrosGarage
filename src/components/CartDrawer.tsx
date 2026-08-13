@@ -51,7 +51,9 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
 
   if (!isOpen) return null;
 
-  const totalAmount = cart.reduce((sum, item) => sum + item.product.price * item.quantity, 0);
+  const subtotal = cart.reduce((sum, item) => sum + item.product.price * item.quantity, 0);
+  const totalShipping = cart.reduce((sum, item) => sum + (item.product.shippingFee || 0) * item.quantity, 0);
+  const totalAmount = subtotal + totalShipping;
 
   const handleCheckoutSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -148,7 +150,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                           <div>
                             <span className="text-[11px] font-mono text-amber-400 uppercase font-bold">{product.brand}</span>
                             <h4 className="text-sm font-bold text-white truncate">{product.name}</h4>
-                            <p className="text-sm font-mono font-bold text-zinc-300 mt-0.5">${product.price.toLocaleString()}</p>
+                            <p className="text-sm font-mono font-bold text-zinc-300 mt-0.5">₱{product.price.toLocaleString()}</p>
                           </div>
 
                           <div className="flex items-center justify-between pt-1">
@@ -341,10 +343,23 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
 
           {/* Footer Actions */}
           <div className="p-6 border-t border-zinc-800 bg-zinc-950 space-y-3">
+            {step !== 'success' && cart.length > 0 && (
+              <div className="space-y-2 pb-2 border-b border-zinc-900 mb-3">
+                <div className="flex items-center justify-between text-sm font-mono">
+                  <span className="text-zinc-500 uppercase">Items Subtotal</span>
+                  <span className="text-zinc-300">₱{subtotal.toLocaleString()}</span>
+                </div>
+                <div className="flex items-center justify-between text-sm font-mono">
+                  <span className="text-zinc-500 uppercase">Total Shipping</span>
+                  <span className="text-emerald-500 font-bold">+ ₱{totalShipping.toLocaleString()}</span>
+                </div>
+              </div>
+            )}
+
             {step === 'cart' && (
               <>
-                <div className="flex items-center justify-between text-base font-mono font-bold">
-                  <span className="text-zinc-400 uppercase">Subtotal</span>
+                <div className="flex items-center justify-between text-base font-mono font-bold pb-2">
+                  <span className="text-zinc-400 uppercase">Total Amount</span>
                   <span className="text-amber-400 text-xl">₱{totalAmount.toLocaleString()} PHP</span>
                 </div>
 
@@ -377,7 +392,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                   id="confirm-place-order-btn"
                   className="flex-1 bg-amber-500 hover:bg-amber-400 text-zinc-950 font-black py-3 px-4 rounded-xl text-sm uppercase tracking-wider transition-all disabled:opacity-50"
                 >
-                  {loading ? 'Processing Order...' : `Place Order ($${totalAmount.toLocaleString()})`}
+                  {loading ? 'Processing Order...' : `Place Order (₱${totalAmount.toLocaleString()})`}
                 </button>
               </div>
             )}

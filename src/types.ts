@@ -9,14 +9,21 @@ export const PRODUCT_CATEGORIES = [
 ];
 
 export const PRODUCT_BRANDS = [
-  'HKS',
   'TAKATA',
+  'HKS',
   'Spoon Sports',
   'RAYS',
   'BRIDE',
-  'MOMO',
   'GReddy',
-  'Tein'
+  'TOMEI',
+  'ENDLESS',
+  'MOMO',
+  "APEX'i",
+  'TRUST',
+  'WORK',
+  'RECARO',
+  'Project Mu',
+  'NISMO'
 ];
 
 export interface UserProfile {
@@ -45,6 +52,7 @@ export interface Product {
   brand: string; // e.g. HKS, Spoon Sports, TAKATA, RAYS, BRIDE, MOMO, Tomei
   category: string; // e.g. Exhaust & Turbo, Suspension, Engine, Interior, Wheels, Brakes
   price: number;
+  shippingFee?: number;
   image: string;
   description: string;
   stock: number;

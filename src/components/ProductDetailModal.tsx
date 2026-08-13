@@ -65,8 +65,23 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
             
             <div className="space-y-4">
               <div>
-                <h2 className="text-3xl font-black text-white italic font-mono uppercase">{product.name}</h2>
-                <p className="text-3xl font-mono font-black text-amber-400 mt-2">₱{product.price.toLocaleString()} <span className="text-sm text-zinc-500 font-normal">PHP</span></p>
+                <h2 className="text-2xl sm:text-3xl font-black text-white italic font-sans uppercase tracking-tight">{product.name}</h2>
+                <div className="mt-3 p-3.5 bg-zinc-950 rounded-xl border border-zinc-800 flex items-baseline justify-between">
+                  <div>
+                    <span className="text-[10px] font-mono uppercase text-zinc-400 font-bold block">Current Price</span>
+                    <div className="flex items-baseline gap-1.5">
+                      <span className="text-3xl sm:text-4xl font-mono font-black text-[#e5a823]">
+                        ₱{product.price.toLocaleString()}
+                      </span>
+                      <span className="text-sm font-mono text-zinc-400 font-bold">PHP</span>
+                    </div>
+                  </div>
+                  {product.stock > 0 && (
+                    <span className="text-xs font-mono font-bold text-emerald-400 bg-emerald-500/10 px-2.5 py-1 rounded-md border border-emerald-500/30">
+                      Ready to Ship
+                    </span>
+                  )}
+                </div>
               </div>
 
               <p className="text-sm text-zinc-300 leading-relaxed">
