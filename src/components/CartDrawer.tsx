@@ -16,7 +16,8 @@ import {
   Smartphone, 
   Building2, 
   AlertCircle,
-  ExternalLink
+  ExternalLink,
+  ZoomIn
 } from 'lucide-react';
 import { CartItem, UserProfile, SiteSettings, PaymentMethodType } from '../types';
 import { createOrder, saveUserProfile, DEFAULT_SITE_SETTINGS } from '../lib/dbService';
@@ -66,6 +67,33 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
   const [createdOrderId, setCreatedOrderId] = useState<string | null>(null);
   const [createdOrderRef, setCreatedOrderRef] = useState<string | null>(null);
   const [saveProfile, setSaveProfile] = useState(true);
+
+  const [qrMode, setQrMode] = useState<'dynamic' | 'static'>('dynamic');
+  const [zoomedQr, setZoomedQr] = useState<{ url: string; title: string; subtitle?: string } | null>(null);
+
+  /**
+   * Constructs an EMVCo QR Ph compliant payload string and generates a dynamic QR code
+   * with Tag 54 (Transaction Amount) set to the exact order totalAmount.
+   */
+  const createDynamicQrPhUrl = (provider: 'gcash' | 'paymaya', number: string, name: string, amount: number) => {
+    const cleanNum = (number || '').replace(/\D/g, '');
+    if (!cleanNum) return '';
+
+    const amtStr = amount.toFixed(2);
+    const providerTag = provider === 'gcash' ? 'ph.com.gcash' : 'ph.maya';
+    const cleanName = (name || 'NorthBros Motorsport').substring(0, 25).replace(/[^a-zA-Z0-9 ]/g, '');
+
+    // EMVCo QR Ph Data Payload
+    const merchantTagData = `0010${providerTag}0112${cleanNum}`;
+    const merchantTag = `26${merchantTagData.length.toString().padStart(2, '0')}${merchantTagData}`;
+    const amountTag = `54${amtStr.length.toString().padStart(2, '0')}${amtStr}`;
+    const nameTag = `59${cleanName.length.toString().padStart(2, '0')}${cleanName}`;
+
+    // Raw EMVCo payload format for Philippine QR Ph scanning
+    const rawPayload = `000201010212${merchantTag}520460165303608${amountTag}5802PH${nameTag}6006Manila6304`;
+
+    return `https://api.qrserver.com/v1/create-qr-code/?size=600x600&data=${encodeURIComponent(rawPayload)}`;
+  };
 
   useEffect(() => {
     if (user) {
@@ -493,22 +521,65 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                       </div>
 
                       {/* QR Code & Transfer Details */}
-                      <div className="flex flex-col sm:flex-row items-center gap-4 bg-zinc-900/80 p-3.5 rounded-xl border border-zinc-800">
-                        {gcashQr ? (
-                          <div className="relative group shrink-0">
-                            <img
-                              src={gcashQr}
-                              alt="GCash QR Ph Code"
-                              className="w-32 h-32 object-contain bg-white rounded-lg p-1.5 shadow-md"
-                            />
-                            <div className="text-[10px] text-center font-mono text-zinc-500 mt-1">Scan via GCash</div>
-                          </div>
-                        ) : (
-                          <div className="w-32 h-32 bg-zinc-950 border border-zinc-800 rounded-lg p-2 flex flex-col items-center justify-center text-center text-zinc-500 font-mono text-[10px] shrink-0">
-                            <span>Direct Transfer</span>
-                            <span className="text-[9px] text-zinc-600 mt-1">No QR Uploaded</span>
-                          </div>
-                        )}
+                      <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 bg-zinc-900/80 p-3.5 rounded-xl border border-zinc-800">
+                        {(() => {
+                          const dynamicQr = gcashNumber ? createDynamicQrPhUrl('gcash', gcashNumber, gcashName, totalAmount) : '';
+                          const activeQr = (qrMode === 'dynamic' && dynamicQr) ? dynamicQr : (gcashQr || dynamicQr);
+                          const isDynamicActive = qrMode === 'dynamic' && !!dynamicQr;
+
+                          return (
+                            <div className="flex flex-col items-center shrink-0 w-full sm:w-auto">
+                              {gcashNumber && gcashQr && (
+                                <div className="flex items-center gap-1 bg-zinc-950 p-0.5 rounded-lg border border-zinc-800 text-[9px] font-mono mb-2 w-full justify-center">
+                                  <button
+                                    type="button"
+                                    onClick={() => setQrMode('dynamic')}
+                                    className={`px-2 py-0.5 rounded transition-all ${isDynamicActive ? 'bg-blue-600 text-white font-bold' : 'text-zinc-400 hover:text-white'}`}
+                                  >
+                                    ⚡ Auto-Amount
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => setQrMode('static')}
+                                    className={`px-2 py-0.5 rounded transition-all ${!isDynamicActive ? 'bg-zinc-800 text-white font-bold' : 'text-zinc-400 hover:text-white'}`}
+                                  >
+                                    Static QR
+                                  </button>
+                                </div>
+                              )}
+
+                              {activeQr ? (
+                                <button
+                                  type="button"
+                                  onClick={() => setZoomedQr({ url: activeQr, title: 'GCash QR Ph Code', subtitle: isDynamicActive ? `Auto-Fills ₱${totalAmount.toLocaleString()}` : 'Scan via GCash' })}
+                                  className="relative group shrink-0 text-center focus:outline-none cursor-pointer block"
+                                >
+                                  <div className="relative overflow-hidden rounded-2xl bg-white p-2 shadow-xl border-2 border-blue-500/30 group-hover:border-blue-500 transition-all">
+                                    <img
+                                      src={activeQr}
+                                      alt="GCash QR Ph Code"
+                                      className="w-48 h-48 sm:w-56 sm:h-56 object-contain"
+                                    />
+                                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity rounded-xl flex items-center justify-center text-white font-mono text-xs font-bold gap-1.5 backdrop-blur-[2px]">
+                                      <ZoomIn className="w-5 h-5 text-blue-400" />
+                                      <span>Tap to Enlarge</span>
+                                    </div>
+                                  </div>
+                                  <div className="text-xs text-center font-mono font-bold text-blue-400 mt-2 flex items-center justify-center gap-1">
+                                    <span>{isDynamicActive ? `⚡ Auto-Fills ₱${totalAmount.toLocaleString()}` : 'Scan via GCash'}</span>
+                                    <ZoomIn className="w-3 h-3 text-blue-400/70" />
+                                  </div>
+                                </button>
+                              ) : (
+                                <div className="w-48 h-48 sm:w-56 sm:h-56 bg-zinc-950 border border-zinc-800 rounded-2xl p-4 flex flex-col items-center justify-center text-center text-zinc-500 font-mono text-xs shrink-0">
+                                  <QrCode className="w-8 h-8 text-zinc-700 mb-2" />
+                                  <span className="font-bold text-zinc-400">Direct Transfer</span>
+                                  <span className="text-[10px] text-zinc-600 mt-1">No QR Code Uploaded</span>
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })()}
 
                         <div className="flex-1 min-w-0 space-y-2 text-xs w-full">
                           <div>
@@ -630,22 +701,65 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                       </div>
 
                       {/* QR Code & Transfer Details */}
-                      <div className="flex flex-col sm:flex-row items-center gap-4 bg-zinc-900/80 p-3.5 rounded-xl border border-zinc-800">
-                        {paymayaQr ? (
-                          <div className="relative group shrink-0">
-                            <img
-                              src={paymayaQr}
-                              alt="Maya QR Ph Code"
-                              className="w-32 h-32 object-contain bg-white rounded-lg p-1.5 shadow-md"
-                            />
-                            <div className="text-[10px] text-center font-mono text-zinc-500 mt-1">Scan via Maya</div>
-                          </div>
-                        ) : (
-                          <div className="w-32 h-32 bg-zinc-950 border border-zinc-800 rounded-lg p-2 flex flex-col items-center justify-center text-center text-zinc-500 font-mono text-[10px] shrink-0">
-                            <span>Direct Transfer</span>
-                            <span className="text-[9px] text-zinc-600 mt-1">No QR Uploaded</span>
-                          </div>
-                        )}
+                      <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 bg-zinc-900/80 p-3.5 rounded-xl border border-zinc-800">
+                        {(() => {
+                          const dynamicQr = paymayaNumber ? createDynamicQrPhUrl('paymaya', paymayaNumber, paymayaName, totalAmount) : '';
+                          const activeQr = (qrMode === 'dynamic' && dynamicQr) ? dynamicQr : (paymayaQr || dynamicQr);
+                          const isDynamicActive = qrMode === 'dynamic' && !!dynamicQr;
+
+                          return (
+                            <div className="flex flex-col items-center shrink-0 w-full sm:w-auto">
+                              {paymayaNumber && paymayaQr && (
+                                <div className="flex items-center gap-1 bg-zinc-950 p-0.5 rounded-lg border border-zinc-800 text-[9px] font-mono mb-2 w-full justify-center">
+                                  <button
+                                    type="button"
+                                    onClick={() => setQrMode('dynamic')}
+                                    className={`px-2 py-0.5 rounded transition-all ${isDynamicActive ? 'bg-emerald-600 text-white font-bold' : 'text-zinc-400 hover:text-white'}`}
+                                  >
+                                    ⚡ Auto-Amount
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => setQrMode('static')}
+                                    className={`px-2 py-0.5 rounded transition-all ${!isDynamicActive ? 'bg-zinc-800 text-white font-bold' : 'text-zinc-400 hover:text-white'}`}
+                                  >
+                                    Static QR
+                                  </button>
+                                </div>
+                              )}
+
+                              {activeQr ? (
+                                <button
+                                  type="button"
+                                  onClick={() => setZoomedQr({ url: activeQr, title: 'Maya QR Ph Code', subtitle: isDynamicActive ? `Auto-Fills ₱${totalAmount.toLocaleString()}` : 'Scan via Maya' })}
+                                  className="relative group shrink-0 text-center focus:outline-none cursor-pointer block"
+                                >
+                                  <div className="relative overflow-hidden rounded-2xl bg-white p-2 shadow-xl border-2 border-emerald-500/30 group-hover:border-emerald-500 transition-all">
+                                    <img
+                                      src={activeQr}
+                                      alt="Maya QR Ph Code"
+                                      className="w-48 h-48 sm:w-56 sm:h-56 object-contain"
+                                    />
+                                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity rounded-xl flex items-center justify-center text-white font-mono text-xs font-bold gap-1.5 backdrop-blur-[2px]">
+                                      <ZoomIn className="w-5 h-5 text-emerald-400" />
+                                      <span>Tap to Enlarge</span>
+                                    </div>
+                                  </div>
+                                  <div className="text-xs text-center font-mono font-bold text-emerald-400 mt-2 flex items-center justify-center gap-1">
+                                    <span>{isDynamicActive ? `⚡ Auto-Fills ₱${totalAmount.toLocaleString()}` : 'Scan via Maya'}</span>
+                                    <ZoomIn className="w-3 h-3 text-emerald-400/70" />
+                                  </div>
+                                </button>
+                              ) : (
+                                <div className="w-48 h-48 sm:w-56 sm:h-56 bg-zinc-950 border border-zinc-800 rounded-2xl p-4 flex flex-col items-center justify-center text-center text-zinc-500 font-mono text-xs shrink-0">
+                                  <QrCode className="w-8 h-8 text-zinc-700 mb-2" />
+                                  <span className="font-bold text-zinc-400">Direct Transfer</span>
+                                  <span className="text-[10px] text-zinc-600 mt-1">No QR Code Uploaded</span>
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })()}
 
                         <div className="flex-1 min-w-0 space-y-2 text-xs w-full">
                           <div>
@@ -986,6 +1100,56 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
 
         </div>
       </div>
+
+      {/* Zoomed QR Code Lightbox Modal */}
+      {zoomedQr && (
+        <div
+          className="fixed inset-0 z-[120] bg-black/90 backdrop-blur-md flex items-center justify-center p-4 animate-in fade-in duration-200"
+          onClick={() => setZoomedQr(null)}
+        >
+          <div
+            className="bg-zinc-900 border border-zinc-700 rounded-3xl p-6 max-w-sm w-full flex flex-col items-center text-center space-y-4 shadow-2xl relative"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button
+              type="button"
+              onClick={() => setZoomedQr(null)}
+              className="absolute top-4 right-4 text-zinc-400 hover:text-white bg-zinc-800 hover:bg-zinc-700 p-2 rounded-full transition-colors cursor-pointer"
+            >
+              <X className="w-5 h-5" />
+            </button>
+
+            <div className="space-y-1 pt-2">
+              <h3 className="font-mono font-bold text-white text-base uppercase tracking-wide">{zoomedQr.title}</h3>
+              {zoomedQr.subtitle && (
+                <p className="text-xs font-mono text-emerald-400 font-bold bg-emerald-950/60 border border-emerald-500/30 px-3 py-1 rounded-full inline-block">
+                  {zoomedQr.subtitle}
+                </p>
+              )}
+            </div>
+
+            <div className="bg-white p-3.5 rounded-2xl shadow-2xl border-4 border-zinc-800">
+              <img
+                src={zoomedQr.url}
+                alt="Enlarged QR Code"
+                className="w-64 h-64 sm:w-72 sm:h-72 object-contain"
+              />
+            </div>
+
+            <p className="text-xs font-mono text-zinc-400">
+              Scan directly using your GCash, Maya, or QR Ph supported banking app camera.
+            </p>
+
+            <button
+              type="button"
+              onClick={() => setZoomedQr(null)}
+              className="w-full bg-zinc-800 hover:bg-zinc-700 text-white font-mono font-bold py-2.5 rounded-xl text-xs uppercase tracking-wider transition-colors cursor-pointer"
+            >
+              Close
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

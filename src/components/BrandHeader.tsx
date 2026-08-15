@@ -149,24 +149,38 @@ export const NorthBrosAngledEmblem: React.FC<{
 export const BrandBadgesBar: React.FC = () => {
   const brands = PRODUCT_BRANDS.map((brandName) => ({
     name: brandName,
-    node: renderBrandBadgeNode(brandName, 'md')
+    node: renderBrandBadgeNode(brandName, 'sm')
   }));
 
   return (
-    <div className="relative w-full border-y border-zinc-800/80 py-10 px-4 overflow-hidden">
+    <div className="relative w-full border-y border-zinc-800/80 py-4 sm:py-5 px-3 sm:px-6 overflow-hidden">
       {/* Background Image with Overlay */}
       <div 
         className="absolute inset-0 bg-cover bg-center bg-no-repeat opacity-90 filter contrast-125"
         style={{ backgroundImage: `url('/assets/global_bg_1786622019879-BZZu64fC.jpg')` }}
       />
-      <div className="absolute inset-0 bg-gradient-to-b from-zinc-950/40 via-zinc-950/20 to-zinc-950/50 backdrop-blur-[0.5px]" />
+      <div className="absolute inset-0 bg-gradient-to-b from-zinc-950/50 via-zinc-950/30 to-zinc-950/60 backdrop-blur-[0.5px]" />
 
-      <div className="relative z-10 max-w-6xl mx-auto">
-        <div className="grid grid-cols-1 sm:grid-cols-3 md:grid-cols-5 gap-4">
+      <div className="relative z-10 max-w-6xl mx-auto space-y-2.5">
+        {/* Subtle Section Header */}
+        <div className="flex items-center justify-between px-1">
+          <div className="flex items-center gap-2">
+            <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
+            <span className="text-[10px] sm:text-[11px] font-mono font-bold tracking-[0.2em] text-zinc-300 uppercase">
+              OFFICIAL JDM SPONSORS & BRAND PARTNERS
+            </span>
+          </div>
+          <span className="text-[9px] sm:text-[10px] font-mono text-zinc-400 uppercase hidden xs:inline">
+            15 AUTHORIZED IMPORTERS
+          </span>
+        </div>
+
+        {/* 3x5 Grid View */}
+        <div className="grid grid-cols-3 sm:grid-cols-5 gap-1.5 sm:gap-2.5">
           {brands.map((brand, idx) => (
             <div 
               key={idx} 
-              className="group bg-zinc-950/40 hover:bg-zinc-900/70 border border-zinc-700/60 hover:border-amber-500/70 rounded-xl p-4 flex flex-col items-center justify-center text-center transition-all duration-300 shadow-md hover:shadow-lg hover:shadow-amber-500/10 backdrop-blur-sm min-h-[80px]"
+              className="group bg-zinc-950/60 hover:bg-zinc-900/90 border border-zinc-800/80 hover:border-amber-500/70 rounded-lg sm:rounded-xl px-2 py-2 sm:px-3 sm:py-2.5 flex items-center justify-center text-center transition-all duration-200 shadow-sm hover:shadow-md hover:shadow-amber-500/10 backdrop-blur-sm min-h-[42px] sm:min-h-[48px]"
             >
               {brand.node}
             </div>

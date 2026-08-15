@@ -31,7 +31,10 @@ import {
   Smartphone,
   Copy,
   ExternalLink,
-  CreditCard
+  CreditCard,
+  Grid,
+  X,
+  Menu
 } from 'lucide-react';
 import {
   Product,
@@ -92,6 +95,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 }) => {
   const { toast } = useToast();
   const [activeTab, setActiveTab] = useState<'overview' | 'settings' | 'payments' | 'products' | 'services' | 'bookings' | 'orders' | 'users' | 'builds'>('settings');
+  const [isGcashDrawerOpen, setIsGcashDrawerOpen] = useState(false);
   
   // State for data
   const [bookings, setBookings] = useState<ServiceBooking[]>([]);
@@ -579,6 +583,13 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
         <div className="flex items-center gap-3">
           <button
+            onClick={() => setIsGcashDrawerOpen(true)}
+            className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white rounded-xl text-xs sm:text-sm font-extrabold transition shadow-lg shadow-blue-500/20 border border-blue-400/30"
+          >
+            <Grid className="w-4 h-4 text-amber-400" />
+            <span>GCash Drawer Menu</span>
+          </button>
+          <button
             onClick={loadAllAdminData}
             className="p-2 text-zinc-400 hover:text-white bg-zinc-800 rounded-xl hover:bg-zinc-700 transition-colors"
             title="Refresh Data"
@@ -597,110 +608,140 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       {/* Admin Content Area */}
       <div className="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 lg:p-8 space-y-6">
         
-        {/* Navigation Tabs */}
-        <div className="flex items-center gap-2 border-b border-zinc-800 pb-2 overflow-x-auto no-scrollbar font-mono text-sm font-bold">
-          <button
-            onClick={() => setActiveTab('payments')}
-            id="admin-tab-payments"
-            className={`px-4 py-2 rounded-xl flex items-center gap-2 transition-all ${
-              activeTab === 'payments' ? 'bg-amber-500 text-zinc-950 font-extrabold' : 'text-blue-400 hover:text-white bg-zinc-900 border border-blue-500/30'
-            }`}
-          >
-            <QrCode className="w-4 h-4 text-blue-400" />
-            <span>Payment Gateways (GCash / Maya)</span>
-          </button>
+        {/* GCash-Style 3-Column Services & Settings Navigation Grid */}
+        <div className="bg-gradient-to-br from-zinc-900 via-zinc-900 to-zinc-950 border border-zinc-800/90 rounded-3xl p-5 sm:p-6 shadow-2xl relative overflow-hidden">
+          <div className="flex items-center justify-between mb-5 pb-3 border-b border-zinc-800/80">
+            <div className="flex items-center gap-2.5">
+              <div className="w-9 h-9 rounded-2xl bg-blue-600/30 border border-blue-500/40 text-blue-400 flex items-center justify-center font-black">
+                <Grid className="w-5 h-5" />
+              </div>
+              <div>
+                <h2 className="text-base font-black font-mono text-white tracking-wide uppercase">GCash Admin Service Hub</h2>
+                <p className="text-xs text-zinc-400">3-Column Grid Layout (Left to Right)</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="px-3 py-1 bg-amber-500/10 border border-amber-500/30 text-amber-400 rounded-full text-xs font-bold capitalize flex items-center gap-1.5 font-mono">
+                <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse"></span>
+                Active: {activeTab}
+              </span>
+            </div>
+          </div>
 
-          <button
-            onClick={() => setActiveTab('settings')}
-            id="admin-tab-settings"
-            className={`px-4 py-2 rounded-xl flex items-center gap-2 transition-all ${
-              activeTab === 'settings' ? 'bg-amber-500 text-zinc-950 font-extrabold' : 'text-amber-400 hover:text-white bg-zinc-900 border border-amber-500/30'
-            }`}
-          >
-            <Globe className="w-4 h-4 text-amber-400" />
-            <span>Website Customization (CMS)</span>
-          </button>
-
-          <button
-            onClick={() => setActiveTab('overview')}
-            className={`px-4 py-2 rounded-xl flex items-center gap-2 transition-all ${
-              activeTab === 'overview' ? 'bg-amber-500 text-zinc-950' : 'text-zinc-400 hover:text-white bg-zinc-900'
-            }`}
-          >
-            <TrendingUp className="w-4 h-4" />
-            <span>Overview Stats</span>
-          </button>
-
-          <button
-            onClick={() => setActiveTab('products')}
-            id="admin-tab-products"
-            className={`px-4 py-2 rounded-xl flex items-center gap-2 transition-all ${
-              activeTab === 'products' ? 'bg-amber-500 text-zinc-950' : 'text-zinc-400 hover:text-white bg-zinc-900'
-            }`}
-          >
-            <Package className="w-4 h-4" />
-            <span>Products ({products.length})</span>
-          </button>
-
-          <button
-            onClick={() => setActiveTab('services')}
-            id="admin-tab-services"
-            className={`px-4 py-2 rounded-xl flex items-center gap-2 transition-all ${
-              activeTab === 'services' ? 'bg-amber-500 text-zinc-950' : 'text-zinc-400 hover:text-white bg-zinc-900'
-            }`}
-          >
-            <Calendar className="w-4 h-4" />
-            <span>Services ({services.length})</span>
-          </button>
-
-          <button
-            onClick={() => setActiveTab('bookings')}
-            id="admin-tab-bookings"
-            className={`px-4 py-2 rounded-xl flex items-center gap-2 transition-all relative ${
-              activeTab === 'bookings' ? 'bg-amber-500 text-zinc-950' : 'text-zinc-400 hover:text-white bg-zinc-900'
-            }`}
-          >
-            <Calendar className="w-4 h-4" />
-            <span>Service Appointments ({bookings.length})</span>
-            {pendingBookingsCount > 0 && (
-              <span className="w-2 h-2 rounded-full bg-pink-500 animate-ping" />
-            )}
-          </button>
-
-          <button
-            onClick={() => setActiveTab('orders')}
-            id="admin-tab-orders"
-            className={`px-4 py-2 rounded-xl flex items-center gap-2 transition-all ${
-              activeTab === 'orders' ? 'bg-amber-500 text-zinc-950' : 'text-zinc-400 hover:text-white bg-zinc-900'
-            }`}
-          >
-            <ShoppingBag className="w-4 h-4" />
-            <span>Order History ({orders.length})</span>
-          </button>
-
-          <button
-            onClick={() => setActiveTab('users')}
-            id="admin-tab-users"
-            className={`px-4 py-2 rounded-xl flex items-center gap-2 transition-all ${
-              activeTab === 'users' ? 'bg-amber-500 text-zinc-950' : 'text-zinc-400 hover:text-white bg-zinc-900'
-            }`}
-          >
-            <Users className="w-4 h-4" />
-            <span>Users & Access ({users.length})</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setActiveTab('builds')}
-            id="admin-tab-builds"
-            className={`px-4 py-2 rounded-xl flex items-center gap-2 transition-all ${
-              activeTab === 'builds' ? 'bg-amber-500 text-zinc-950' : 'text-zinc-400 hover:text-white bg-zinc-900'
-            }`}
-          >
-            <Camera className="w-4 h-4" />
-            <span>Build Chronicles ({builds.length})</span>
-          </button>
+          <div className="grid grid-cols-3 sm:grid-cols-3 md:grid-cols-3 lg:grid-cols-3 gap-3 sm:gap-4">
+            {[
+              { id: 'settings', label: 'Website CMS', icon: Globe, color: 'from-amber-500 to-amber-600', badge: undefined },
+              { id: 'payments', label: 'Payment QR Ph', icon: QrCode, color: 'from-blue-600 to-indigo-600', badge: undefined },
+              { id: 'overview', label: 'Overview Stats', icon: TrendingUp, color: 'from-teal-500 to-emerald-600', badge: undefined },
+              { id: 'products', label: 'Parts Catalog', icon: Package, color: 'from-emerald-500 to-teal-600', badge: products.length },
+              { id: 'services', label: 'Shop Services', icon: Calendar, color: 'from-sky-500 to-blue-600', badge: services.length },
+              { id: 'bookings', label: 'Appointments', icon: Calendar, color: 'from-amber-600 to-orange-600', badge: pendingBookingsCount },
+              { id: 'orders', label: 'Orders History', icon: ShoppingBag, color: 'from-purple-500 to-indigo-600', badge: orders.filter(o => o.paymentStatus === 'pending_receipt' || o.paymentStatus === 'pending_verification').length },
+              { id: 'users', label: 'Users & Roles', icon: Users, color: 'from-violet-500 to-purple-600', badge: users.length },
+              { id: 'builds', label: 'Build Chronicles', icon: Camera, color: 'from-red-500 to-rose-600', badge: builds.length }
+            ].map((tab) => {
+              const Icon = tab.icon;
+              const isActive = activeTab === tab.id;
+              return (
+                <button
+                  key={tab.id}
+                  onClick={() => setActiveTab(tab.id as any)}
+                  className={`group relative flex flex-col items-center justify-center p-3.5 sm:p-5 rounded-2xl transition-all duration-200 border ${
+                    isActive 
+                      ? 'bg-amber-500/15 border-amber-500/80 shadow-lg shadow-amber-500/20 scale-[1.02]' 
+                      : 'bg-zinc-950/80 border-zinc-800/80 hover:bg-zinc-800/80 hover:border-zinc-700'
+                  }`}
+                >
+                  <div className={`relative w-12 h-12 sm:w-14 sm:h-14 rounded-2xl bg-gradient-to-br ${tab.color} text-white flex items-center justify-center shadow-md group-hover:scale-110 transition-transform`}>
+                    <Icon className="w-6 h-6 sm:w-7 sm:h-7" />
+                    {tab.badge !== undefined && tab.badge > 0 && (
+                      <span className="absolute -top-1.5 -right-1.5 px-2 py-0.5 rounded-full bg-red-500 text-white text-[10px] font-black shadow-md border-2 border-zinc-900">
+                        {tab.badge}
+                      </span>
+                    )}
+                  </div>
+                  <span className={`mt-2.5 text-xs sm:text-sm font-bold text-center leading-tight transition-colors ${
+                    isActive ? 'text-amber-400 font-extrabold' : 'text-zinc-200 group-hover:text-white'
+                  }`}>
+                    {tab.label}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
         </div>
+
+        {/* GCash Slide-Out Drawer Overlay */}
+        {isGcashDrawerOpen && (
+          <div className="fixed inset-0 z-50 flex justify-end bg-zinc-950/85 backdrop-blur-md transition-opacity">
+            <div className="w-full max-w-md bg-zinc-900 border-l border-zinc-800 h-full p-6 overflow-y-auto flex flex-col justify-between shadow-2xl">
+              <div>
+                <div className="flex items-center justify-between pb-4 mb-6 border-b border-zinc-800">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-2xl bg-blue-600 text-white flex items-center justify-center font-black shadow-lg shadow-blue-500/30">
+                      <Grid className="w-6 h-6" />
+                    </div>
+                    <div>
+                      <h3 className="text-lg font-black text-white font-mono">GCash Admin Drawer</h3>
+                      <p className="text-xs text-zinc-400">3-Grid Service Shortcut Panel</p>
+                    </div>
+                  </div>
+                  <button 
+                    onClick={() => setIsGcashDrawerOpen(false)}
+                    className="p-2 hover:bg-zinc-800 text-zinc-400 hover:text-white rounded-xl transition"
+                  >
+                    <X className="w-6 h-6" />
+                  </button>
+                </div>
+
+                <div className="grid grid-cols-3 gap-3">
+                  {[
+                    { id: 'settings', label: 'Website CMS', icon: Globe, color: 'from-amber-500 to-amber-600' },
+                    { id: 'payments', label: 'Payment QR', icon: QrCode, color: 'from-blue-600 to-indigo-600' },
+                    { id: 'overview', label: 'Overview', icon: TrendingUp, color: 'from-teal-500 to-emerald-600' },
+                    { id: 'products', label: 'Products', icon: Package, color: 'from-emerald-500 to-teal-600', badge: products.length },
+                    { id: 'services', label: 'Services', icon: Calendar, color: 'from-sky-500 to-blue-600', badge: services.length },
+                    { id: 'bookings', label: 'Bookings', icon: Calendar, color: 'from-amber-600 to-orange-600', badge: pendingBookingsCount },
+                    { id: 'orders', label: 'Orders', icon: ShoppingBag, color: 'from-purple-500 to-indigo-600', badge: orders.length },
+                    { id: 'users', label: 'Users', icon: Users, color: 'from-violet-500 to-purple-600', badge: users.length },
+                    { id: 'builds', label: 'Builds', icon: Camera, color: 'from-red-500 to-rose-600', badge: builds.length }
+                  ].map((tab) => {
+                    const Icon = tab.icon;
+                    const isActive = activeTab === tab.id;
+                    return (
+                      <button
+                        key={tab.id}
+                        onClick={() => {
+                          setActiveTab(tab.id as any);
+                          setIsGcashDrawerOpen(false);
+                        }}
+                        className={`relative flex flex-col items-center justify-center p-3 rounded-2xl transition-all border ${
+                          isActive ? 'bg-amber-500/20 border-amber-500/80 shadow-md shadow-amber-500/10' : 'bg-zinc-950 border-zinc-800/80 hover:bg-zinc-800'
+                        }`}
+                      >
+                        <div className={`relative w-12 h-12 rounded-2xl bg-gradient-to-br ${tab.color} text-white flex items-center justify-center shadow-md mb-2`}>
+                          <Icon className="w-6 h-6" />
+                          {tab.badge !== undefined && tab.badge > 0 && (
+                            <span className="absolute -top-1 -right-1 px-1.5 py-0.2 rounded-full bg-red-500 text-white text-[9px] font-black border border-zinc-900">
+                              {tab.badge}
+                            </span>
+                          )}
+                        </div>
+                        <span className={`text-xs font-bold text-center ${isActive ? 'text-amber-400 font-extrabold' : 'text-zinc-300'}`}>
+                          {tab.label}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <div className="pt-6 border-t border-zinc-800 text-center">
+                <p className="text-xs text-zinc-500 font-mono">NORTHBROS GARAGE — GCASH DRAWER CONSOLE</p>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* TAB: PAYMENT GATEWAYS (GCASH & MAYA) */}
         {activeTab === 'payments' && (

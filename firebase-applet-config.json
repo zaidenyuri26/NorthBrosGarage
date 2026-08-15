@@ -3,7 +3,7 @@
   "appId": "1:829768739853:web:b0179da56b0fca63f67944",
   "apiKey": "AIzaSyBGO1v41VpeCGfvCbeZgb7VQ0Am-WWl2bU",
   "authDomain": "northbros-garage.firebaseapp.com",
-  "firestoreDatabaseId": "ai-studio-281608ea-494c-426f-ad80-79481e499845",
+  "firestoreDatabaseId": "(default)",
   "storageBucket": "northbros-garage.firebasestorage.app",
   "messagingSenderId": "829768739853",
   "measurementId": "",
