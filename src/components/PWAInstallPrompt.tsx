@@ -96,7 +96,7 @@ export const PWAInstallPrompt: React.FC = () => {
   if (!showBanner) return null;
 
   return (
-    <div className="fixed bottom-20 md:bottom-6 left-3 right-3 sm:left-auto sm:right-6 sm:max-w-md z-40 bg-zinc-900/95 backdrop-blur-md border border-amber-500/40 rounded-2xl p-3.5 shadow-2xl shadow-black/80 animate-toast-in">
+    <div className="fixed bottom-20 md:bottom-6 inset-x-3 sm:inset-x-auto sm:right-6 sm:max-w-md z-40 max-w-[calc(100%-1.5rem)] mx-auto sm:mx-0 bg-zinc-900/95 backdrop-blur-md border border-amber-500/40 rounded-2xl p-3.5 shadow-2xl shadow-black/80 animate-toast-in">
       <div className="flex items-start gap-3">
         <div className="w-10 h-10 rounded-xl bg-amber-500/15 border border-amber-500/30 flex items-center justify-center shrink-0 text-amber-400">
           <Smartphone className="w-5 h-5" />

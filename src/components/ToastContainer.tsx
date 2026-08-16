@@ -21,7 +21,7 @@ export const ToastContainer: React.FC = () => {
     <div
       aria-live="polite"
       aria-label="Notifications"
-      className="fixed bottom-4 right-4 sm:bottom-6 sm:right-6 z-[120] flex flex-col-reverse gap-3 max-w-sm sm:max-w-md w-[calc(100vw-2rem)] sm:w-auto pointer-events-none"
+      className="fixed bottom-4 right-4 sm:bottom-6 sm:right-6 z-[120] flex flex-col-reverse gap-3 max-w-sm sm:max-w-md w-[calc(100%-2rem)] sm:w-auto pointer-events-none"
     >
       {toasts.map((toast) => (
         <ToastCard key={toast.id} toast={toast} onDismiss={() => dismissToast(toast.id)} />

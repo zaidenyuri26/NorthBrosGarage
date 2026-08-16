@@ -157,7 +157,7 @@ export const BrandBadgesBar: React.FC = () => {
       {/* Background Image with Overlay */}
       <div 
         className="absolute inset-0 bg-cover bg-center bg-no-repeat opacity-90 filter contrast-125"
-        style={{ backgroundImage: `url('/assets/global_bg_1786622019879-BZZu64fC.jpg')` }}
+        style={{ backgroundImage: 'var(--image-global-bg)' }}
       />
       <div className="absolute inset-0 bg-gradient-to-b from-zinc-950/50 via-zinc-950/30 to-zinc-950/60 backdrop-blur-[0.5px]" />
 

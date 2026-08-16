@@ -45,7 +45,7 @@ export const Navbar: React.FC<NavbarProps> = ({
             <Megaphone className="w-3 h-3 shrink-0 animate-bounce text-amber-400" />
             <span>UPDATE:</span>
           </div>
-          <div className="overflow-hidden whitespace-nowrap w-full relative max-w-full">
+          <div className="overflow-hidden whitespace-nowrap flex-1 min-w-0 relative max-w-full [contain:paint]">
             <div className="animate-marquee inline-flex items-center gap-16">
               <span className="inline-block">{announcement}</span>
               <span className="inline-block">{announcement}</span>
