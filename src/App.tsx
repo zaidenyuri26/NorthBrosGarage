@@ -32,6 +32,8 @@ import { AuthModal } from './components/AuthModal';
 import { AdminDashboard } from './components/AdminDashboard';
 import { CustomerDashboard } from './components/CustomerDashboard';
 import { Footer } from './components/Footer';
+import { MobileBottomNav } from './components/MobileBottomNav';
+import { PWAInstallPrompt } from './components/PWAInstallPrompt';
 
 export default function App() {
   const { toast } = useToast();
@@ -229,8 +231,10 @@ export default function App() {
   };
 
   return (
-    <div className="min-h-screen bg-zinc-950/20 text-zinc-100 font-sans selection:bg-amber-500 selection:text-zinc-950">
-      
+    <div className="min-h-screen bg-zinc-950/20 text-zinc-100 font-sans selection:bg-amber-500 selection:text-zinc-950 pb-16 md:pb-0 w-full max-w-full overflow-x-hidden">
+      {/* PWA Install Banner */}
+      <PWAInstallPrompt />
+
       {/* Header & Sticky Navbar */}
       <Navbar
         cartCount={cart.reduce((sum, item) => sum + item.quantity, 0)}
@@ -346,6 +350,17 @@ export default function App() {
         onOpenAuth={() => setIsAuthOpen(true)}
         onSelectCategory={handleSelectCategoryPill}
         siteSettings={siteSettings}
+      />
+
+      {/* Mobile Bottom Quick Navigation Bar */}
+      <MobileBottomNav
+        cartCount={cart.reduce((sum, item) => sum + item.quantity, 0)}
+        onOpenCart={() => setIsCartOpen(true)}
+        onOpenDashboard={() => setIsCustomerDashboardOpen(true)}
+        onOpenAdmin={() => setIsAdminDashboardOpen(true)}
+        onOpenAuth={() => setIsAuthOpen(true)}
+        userRole={user?.role}
+        isAuthenticated={!!user}
       />
 
       {/* OVERLAY MODALS & DRAWERS */}

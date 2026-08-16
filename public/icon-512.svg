@@ -1,0 +1,48 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#18181b" />
+      <stop offset="50%" stop-color="#09090b" />
+      <stop offset="100%" stop-color="#000000" />
+    </linearGradient>
+    <linearGradient id="goldGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#fffde6" />
+      <stop offset="25%" stop-color="#fde047" />
+      <stop offset="60%" stop-color="#e5a823" />
+      <stop offset="100%" stop-color="#b47a06" />
+    </linearGradient>
+    <linearGradient id="silverGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#ffffff" />
+      <stop offset="50%" stop-color="#d4d4d8" />
+      <stop offset="100%" stop-color="#71717a" />
+    </linearGradient>
+    <filter id="shadow" x="-10%" y="-10%" width="130%" height="130%">
+      <feDropShadow dx="0" dy="8" stdDeviation="12" flood-color="#e5a823" flood-opacity="0.4" />
+    </filter>
+  </defs>
+
+  <!-- Background rounded rectangle -->
+  <rect width="512" height="512" rx="110" fill="url(#bgGrad)" stroke="#27272a" stroke-width="6" />
+  
+  <!-- Subtle inner carbon border -->
+  <rect x="20" y="20" width="472" height="472" rx="96" fill="none" stroke="url(#goldGrad)" stroke-width="3" stroke-opacity="0.45" />
+
+  <!-- Center N and B Graphic / Motorsport Wrench Icon -->
+  <g transform="translate(256, 230)" filter="url(#shadow)">
+    <!-- Slanted Racing Badge Motif -->
+    <path d="M-90,-65 L60,-65 L95,-25 L-55,-25 Z" fill="url(#silverGrad)" />
+    <path d="M-55,-15 L95,-15 L60,25 L-90,25 Z" fill="url(#goldGrad)" />
+    
+    <!-- Central Turbo / Wrench Graphic -->
+    <circle cx="0" cy="5" r="42" fill="#09090b" stroke="url(#goldGrad)" stroke-width="8" />
+    <circle cx="0" cy="5" r="18" fill="url(#goldGrad)" />
+  </g>
+
+  <!-- Bottom Brand Text -->
+  <text x="256" y="390" text-anchor="middle" font-family="system-ui, -apple-system, sans-serif" font-weight="900" font-style="italic" font-size="44" fill="#ffffff" letter-spacing="2">
+    NORTH<tspan fill="#e5a823">BROS</tspan>
+  </text>
+  <text x="256" y="440" text-anchor="middle" font-family="monospace" font-weight="800" font-size="24" fill="#a1a1aa" letter-spacing="8">
+    — GARAGE —
+  </text>
+</svg>

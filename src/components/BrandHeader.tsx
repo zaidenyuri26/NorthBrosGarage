@@ -24,34 +24,34 @@ export const BrandHeader: React.FC<BrandHeaderProps> = ({
 }) => {
   const sizeConfig = {
     xs: {
-      text: 'text-lg sm:text-xl',
-      sub: 'text-[9px] tracking-[0.25em]',
+      text: 'text-base sm:text-lg',
+      sub: 'text-[8px] sm:text-[9px] tracking-[0.15em] sm:tracking-[0.25em]',
+      line: 'h-[1.5px]',
+      gap: 'gap-1'
+    },
+    sm: {
+      text: 'text-lg sm:text-xl md:text-2xl',
+      sub: 'text-[9px] sm:text-[11px] tracking-[0.18em] sm:tracking-[0.3em]',
       line: 'h-[1.5px]',
       gap: 'gap-1.5'
     },
-    sm: {
-      text: 'text-xl sm:text-2xl',
-      sub: 'text-[10px] sm:text-[11px] tracking-[0.3em]',
-      line: 'h-[1.5px]',
-      gap: 'gap-2'
-    },
     md: {
-      text: 'text-2xl sm:text-3xl md:text-4xl',
-      sub: 'text-xs sm:text-sm tracking-[0.35em]',
+      text: 'text-xl sm:text-2xl md:text-3xl lg:text-4xl',
+      sub: 'text-[10px] sm:text-xs md:text-sm tracking-[0.2em] sm:tracking-[0.35em]',
       line: 'h-[2px]',
-      gap: 'gap-2.5'
+      gap: 'gap-2 sm:gap-2.5'
     },
     lg: {
-      text: 'text-4xl sm:text-5xl md:text-6xl',
-      sub: 'text-sm sm:text-base md:text-lg tracking-[0.4em]',
-      line: 'h-[2.5px]',
-      gap: 'gap-3'
+      text: 'text-3xl sm:text-4xl md:text-5xl lg:text-6xl',
+      sub: 'text-xs sm:text-sm md:text-base tracking-[0.22em] sm:tracking-[0.4em]',
+      line: 'h-[2px] sm:h-[2.5px]',
+      gap: 'gap-2 sm:gap-3'
     },
     xl: {
-      text: 'text-5xl sm:text-6xl md:text-7xl lg:text-8xl',
-      sub: 'text-base sm:text-xl tracking-[0.45em]',
-      line: 'h-[3px]',
-      gap: 'gap-4'
+      text: 'text-4xl sm:text-5xl md:text-6xl lg:text-7xl',
+      sub: 'text-sm sm:text-base md:text-lg tracking-[0.25em] sm:tracking-[0.45em]',
+      line: 'h-[2.5px] sm:h-[3px]',
+      gap: 'gap-2.5 sm:gap-4'
     }
   };
 
@@ -63,7 +63,7 @@ export const BrandHeader: React.FC<BrandHeaderProps> = ({
 
     if (lower.includes('north') && lower.includes('bros')) {
       return (
-        <span className="inline-flex items-baseline font-black italic tracking-[-0.04em] uppercase font-sans">
+        <span className="inline-flex items-baseline font-black italic tracking-[-0.03em] uppercase font-sans">
           <span className="brand-line1-text">North</span>
           <span className="brand-line2-text ml-0.5">Bros</span>
         </span>
@@ -71,7 +71,7 @@ export const BrandHeader: React.FC<BrandHeaderProps> = ({
     } else if (lower.includes('north')) {
       const parts = raw.split(/north/i);
       return (
-        <span className="inline-flex items-baseline font-black italic tracking-[-0.04em] uppercase font-sans">
+        <span className="inline-flex items-baseline font-black italic tracking-[-0.03em] uppercase font-sans">
           {parts[0] && <span className="brand-line1-text">{parts[0]}</span>}
           <span className="brand-line1-text">North</span>
           {parts[1] && <span className="brand-line2-text">{parts[1]}</span>}
@@ -80,7 +80,7 @@ export const BrandHeader: React.FC<BrandHeaderProps> = ({
     } else if (lower.includes('bros')) {
       const parts = raw.split(/bros/i);
       return (
-        <span className="inline-flex items-baseline font-black italic tracking-[-0.04em] uppercase font-sans">
+        <span className="inline-flex items-baseline font-black italic tracking-[-0.03em] uppercase font-sans">
           <span className="brand-line1-text">{parts[0]}</span>
           <span className="brand-line2-text ml-0.5">Bros</span>
           {parts[1] && <span className="brand-line1-text">{parts[1]}</span>}
@@ -89,26 +89,26 @@ export const BrandHeader: React.FC<BrandHeaderProps> = ({
     }
 
     return (
-      <span className="inline-flex items-baseline font-black italic tracking-[-0.04em] uppercase font-sans brand-line1-text">
+      <span className="inline-flex items-baseline font-black italic tracking-[-0.03em] uppercase font-sans brand-line1-text">
         {raw}
       </span>
     );
   };
 
   return (
-    <div className={`inline-flex flex-col items-center select-none bg-transparent ${className}`}>
-      {/* Brand Name Text with Racing Slant & Gold Accent directly on main background */}
-      <div className={`font-black italic uppercase leading-none ${currentSize.text}`}>
+    <div className={`inline-flex flex-col items-center select-none bg-transparent max-w-full overflow-hidden ${className}`}>
+      {/* Brand Name Text with Racing Slant & Gold Accent */}
+      <div className={`font-black italic uppercase leading-none ${currentSize.text} max-w-full truncate`}>
         {renderStyledBrandName(brandName)}
       </div>
       
-      {/* Subtitle with High-Precision Horizontal Gold Lines: — GARAGE — */}
-      <div className={`w-full flex items-center justify-center ${currentSize.gap} mt-1.5`}>
-        <div className={`${currentSize.line} flex-1 bg-gradient-to-r from-transparent via-[#e5a823] to-[#e5a823] rounded-full`} />
-        <span className={`font-extrabold font-sans text-zinc-300 tracking-[0.3em] uppercase ${currentSize.sub} shrink-0`}>
+      {/* Subtitle with High-Precision Horizontal Gold Lines */}
+      <div className={`w-full flex items-center justify-center ${currentSize.gap} mt-1 sm:mt-1.5 max-w-full overflow-hidden`}>
+        <div className={`${currentSize.line} flex-1 min-w-[12px] bg-gradient-to-r from-transparent via-[#e5a823] to-[#e5a823] rounded-full`} />
+        <span className={`font-extrabold font-sans text-zinc-300 uppercase ${currentSize.sub} shrink-0 text-center`}>
           {brandSubtitle || 'GARAGE'}
         </span>
-        <div className={`${currentSize.line} flex-1 bg-gradient-to-r from-[#e5a823] via-[#e5a823] to-transparent rounded-full`} />
+        <div className={`${currentSize.line} flex-1 min-w-[12px] bg-gradient-to-r from-[#e5a823] via-[#e5a823] to-transparent rounded-full`} />
       </div>
     </div>
   );

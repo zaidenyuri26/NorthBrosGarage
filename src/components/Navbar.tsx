@@ -37,15 +37,15 @@ export const Navbar: React.FC<NavbarProps> = ({
   const isAnnouncementEnabled = siteSettings?.announcementEnabled !== false;
 
   return (
-    <header className="sticky top-0 z-40 bg-zinc-950/40 border-b border-zinc-800 backdrop-blur-xl text-left">
+    <header className="sticky top-0 z-40 bg-zinc-950/40 border-b border-zinc-800 backdrop-blur-xl text-left w-full max-w-full overflow-hidden">
       {/* Top Announcement Bar */}
       {isAnnouncementEnabled && announcement && (
-        <div className="bg-gradient-to-r from-amber-600 via-amber-500 to-amber-600 text-zinc-950 font-mono text-[12px] font-black py-1.5 px-4 overflow-hidden tracking-wider uppercase border-b border-amber-500/40 flex items-center gap-3">
+        <div className="bg-gradient-to-r from-amber-600 via-amber-500 to-amber-600 text-zinc-950 font-mono text-[12px] font-black py-1.5 px-4 overflow-hidden tracking-wider uppercase border-b border-amber-500/40 flex items-center gap-3 w-full max-w-full">
           <div className="flex items-center gap-1.5 shrink-0 z-10 bg-zinc-950 text-amber-400 px-2 py-0.5 rounded shadow-sm text-[11px] font-bold">
             <Megaphone className="w-3 h-3 shrink-0 animate-bounce text-amber-400" />
             <span>UPDATE:</span>
           </div>
-          <div className="overflow-hidden whitespace-nowrap w-full relative">
+          <div className="overflow-hidden whitespace-nowrap w-full relative max-w-full">
             <div className="animate-marquee inline-flex items-center gap-16">
               <span className="inline-block">{announcement}</span>
               <span className="inline-block">{announcement}</span>

@@ -1,5 +1,5 @@
-import React from 'react';
-import { Smartphone, ExternalLink, QrCode, CheckCircle2, X, AlertCircle } from 'lucide-react';
+import React, { useState } from 'react';
+import { Smartphone, ExternalLink, QrCode, CheckCircle2, X, AlertCircle, Copy, Check, ArrowUpRight } from 'lucide-react';
 
 interface AppLauncherModalProps {
   isOpen: boolean;
@@ -23,35 +23,49 @@ export const AppLauncherModal: React.FC<AppLauncherModalProps> = ({
   qrUrl,
   portalUrl,
 }) => {
+  const [copied, setCopied] = useState(false);
+  const [copiedType, setCopiedType] = useState<'all' | 'number' | 'amount' | null>(null);
+
   if (!isOpen) return null;
 
   const isGcash = appType === 'gcash';
   const appName = isGcash ? 'GCash' : 'Maya';
   const themeBorder = isGcash ? 'border-blue-500/40' : 'border-emerald-500/40';
 
-  // Check if likely desktop browser
-  const isMobileDevice = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+  // Deep links, Intent URIs & Store Fallbacks
+  const customScheme = isGcash ? 'gcash://' : 'paymaya://';
+  const playStoreUrl = isGcash
+    ? 'https://play.google.com/store/apps/details?id=com.globe.gcash.android'
+    : 'https://play.google.com/store/apps/details?id=com.paymaya';
+  const appStoreUrl = isGcash
+    ? 'https://apps.apple.com/ph/app/gcash/id520358122'
+    : 'https://apps.apple.com/ph/app/maya-credit-wallet-bank/id991705982';
 
-  // Deep links & Intent URIs
-  const iosScheme = isGcash ? 'gcash://' : 'paymaya://';
   const androidIntent = isGcash
-    ? 'intent://#Intent;package=com.globe.gcash.android;scheme=gcash;end'
-    : 'intent://#Intent;package=com.paymaya;scheme=paymaya;end';
+    ? `intent://#Intent;package=com.globe.gcash.android;scheme=gcash;S.browser_fallback_url=${encodeURIComponent(playStoreUrl)};end`
+    : `intent://#Intent;package=com.paymaya;scheme=paymaya;S.browser_fallback_url=${encodeURIComponent(playStoreUrl)};end`;
 
-  const handleCopyDetails = () => {
-    navigator.clipboard.writeText(`${accountNumber}`);
+  const handleCopy = (text: string, type: 'all' | 'number' | 'amount') => {
+    navigator.clipboard.writeText(text);
+    setCopied(true);
+    setCopiedType(type);
+    setTimeout(() => {
+      setCopied(false);
+      setCopiedType(null);
+    }, 2500);
   };
 
-  const handleTriggerDeepLink = (scheme: string) => {
-    handleCopyDetails();
+  const handleLaunchAttempt = (url: string) => {
+    handleCopy(accountNumber, 'number');
+    
+    // First try opening directly
     try {
-      if (window.top && window.top !== window) {
-        window.top.location.href = scheme;
-      } else {
-        window.location.href = scheme;
+      const w = window.open(url, '_blank');
+      if (!w || w.closed || typeof w.closed === 'undefined') {
+        window.location.href = url;
       }
     } catch {
-      window.location.href = scheme;
+      window.location.href = url;
     }
   };
 
@@ -92,85 +106,130 @@ export const AppLauncherModal: React.FC<AppLauncherModalProps> = ({
             <div className="text-xs font-mono space-y-1">
               <p className="font-bold text-white">Send payment via {appName}</p>
               <p className="text-zinc-400 text-[11px] leading-relaxed">
-                Send the exact payment of ₱{amount.toLocaleString()} to the merchant account details below.
+                Send exactly <strong>₱{amount.toLocaleString()}</strong> to the merchant recipient below, then copy your receipt's Reference No.
               </p>
             </div>
           </div>
 
-          {/* Copied Details Box */}
-          <div className="bg-zinc-900/80 p-3.5 rounded-2xl border border-zinc-800 space-y-2 text-xs font-mono">
+          {/* Account Details Box with 1-Click Copy */}
+          <div className="bg-zinc-900/80 p-3.5 rounded-2xl border border-zinc-800 space-y-2.5 text-xs font-mono">
             <div className="flex items-center justify-between text-[11px]">
               <span className="text-zinc-400 uppercase">Verified Merchant Account</span>
               <span className="text-emerald-400 font-bold flex items-center gap-1">
                 <CheckCircle2 className="w-3.5 h-3.5" /> Verified
               </span>
             </div>
+
             <div className="flex items-center justify-between font-bold bg-zinc-950 p-2.5 rounded-xl border border-zinc-800">
               <div>
                 <span className="text-zinc-500 text-[10px] block">RECIPIENT {appName.toUpperCase()} NO.</span>
-                <span className="text-amber-400 text-sm font-mono">{accountNumber}</span>
+                <span className="text-amber-400 text-sm font-mono tracking-wider">{accountNumber}</span>
               </div>
-              <div className="text-right">
-                <span className="text-zinc-500 text-[10px] block">PAYABLE AMOUNT</span>
-                <span className="text-emerald-400 text-sm font-mono">₱{amount.toLocaleString()}</span>
-              </div>
+              <button
+                type="button"
+                onClick={() => handleCopy(accountNumber, 'number')}
+                className="flex items-center gap-1 text-[11px] bg-zinc-800 hover:bg-zinc-700 text-zinc-200 px-2.5 py-1.5 rounded-lg transition-all cursor-pointer"
+              >
+                {copied && copiedType === 'number' ? (
+                  <>
+                    <Check className="w-3.5 h-3.5 text-emerald-400" />
+                    <span className="text-emerald-400 font-bold">Copied!</span>
+                  </>
+                ) : (
+                  <>
+                    <Copy className="w-3.5 h-3.5 text-zinc-400" />
+                    <span>Copy No.</span>
+                  </>
+                )}
+              </button>
             </div>
-            <p className="text-[10px] text-zinc-400 text-center">Account Name: <strong className="text-white">{accountName}</strong></p>
+
+            <div className="flex items-center justify-between bg-zinc-950 p-2.5 rounded-xl border border-zinc-800 text-[11px]">
+              <div>
+                <span className="text-zinc-500 text-[10px] block">PAYABLE EXACT AMOUNT</span>
+                <span className="text-emerald-400 text-sm font-mono font-bold">₱{amount.toLocaleString()}</span>
+              </div>
+              <button
+                type="button"
+                onClick={() => handleCopy(amount.toString(), 'amount')}
+                className="flex items-center gap-1 text-[11px] bg-zinc-800 hover:bg-zinc-700 text-zinc-200 px-2.5 py-1.5 rounded-lg transition-all cursor-pointer"
+              >
+                {copied && copiedType === 'amount' ? (
+                  <>
+                    <Check className="w-3.5 h-3.5 text-emerald-400" />
+                    <span className="text-emerald-400 font-bold">Copied!</span>
+                  </>
+                ) : (
+                  <>
+                    <Copy className="w-3.5 h-3.5 text-zinc-400" />
+                    <span>Copy Amount</span>
+                  </>
+                )}
+              </button>
+            </div>
+
+            <p className="text-[10px] text-zinc-400 text-center">
+              Account Name: <strong className="text-white">{accountName}</strong>
+            </p>
           </div>
 
           {/* Action Launcher Buttons */}
           <div className="space-y-2 pt-1">
-            {/* Optional Official Online Payment Link if set */}
+            {/* Optional Official Online Payment Portal if set */}
             {portalUrl && (
-              <button
-                type="button"
-                onClick={() => {
-                  window.open(portalUrl, '_blank');
-                  onClose();
-                }}
-                className={`w-full py-3.5 px-4 rounded-xl font-black font-mono text-xs uppercase tracking-wider flex items-center justify-center gap-2 shadow-lg cursor-pointer transition-all ${
+              <a
+                href={portalUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={onClose}
+                className={`w-full py-3 px-4 rounded-xl font-black font-mono text-xs uppercase tracking-wider flex items-center justify-center gap-2 shadow-lg cursor-pointer transition-all ${
                   isGcash
                     ? 'bg-blue-600 hover:bg-blue-500 text-white shadow-blue-500/30 ring-2 ring-blue-400'
                     : 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-emerald-500/30 ring-2 ring-emerald-400'
                 }`}
               >
                 <ExternalLink className="w-4 h-4 text-white" />
-                <span>Open Official Online Payment Link</span>
-              </button>
+                <span>Open Merchant Checkout Portal</span>
+              </a>
             )}
 
-            {/* Mobile App Deep Link Button */}
-            <button
-              type="button"
-              onClick={() => handleTriggerDeepLink(iosScheme)}
-              className="w-full bg-zinc-900 hover:bg-zinc-800 text-white border border-zinc-700 py-3 px-3 rounded-xl text-xs font-mono font-bold uppercase flex items-center justify-center gap-2 transition-all cursor-pointer"
+            {/* Primary Mobile App Launch Button */}
+            <a
+              href={customScheme}
+              onClick={() => handleLaunchAttempt(customScheme)}
+              className={`w-full py-3 px-3 rounded-xl text-xs font-mono font-black uppercase tracking-wider flex items-center justify-center gap-2 transition-all cursor-pointer shadow-md ${
+                isGcash
+                  ? 'bg-blue-600 hover:bg-blue-500 text-white shadow-blue-600/25'
+                  : 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-emerald-600/25'
+              }`}
             >
-              <Smartphone className="w-4 h-4 text-amber-400" />
-              <span>Launch {appName} App ({iosScheme})</span>
-            </button>
+              <Smartphone className="w-4 h-4" />
+              <span>Launch {appName} App</span>
+              <ArrowUpRight className="w-3.5 h-3.5 opacity-80" />
+            </a>
 
-            {/* Android Intent Link */}
-            <button
-              type="button"
-              onClick={() => handleTriggerDeepLink(androidIntent)}
-              className="w-full bg-zinc-900/80 hover:bg-zinc-800 text-zinc-300 border border-zinc-800 py-2.5 px-3 rounded-xl text-[11px] font-mono font-bold uppercase flex items-center justify-center gap-2 transition-all cursor-pointer"
-            >
-              <ExternalLink className="w-3.5 h-3.5 text-blue-400" />
-              <span>Android Intent Deep Link</span>
-            </button>
-          </div>
+            {/* Android Intent Link / Store Fallback Grid */}
+            <div className="grid grid-cols-2 gap-2">
+              <a
+                href={androidIntent}
+                onClick={() => handleLaunchAttempt(androidIntent)}
+                className="bg-zinc-900 hover:bg-zinc-800 text-zinc-200 border border-zinc-700 py-2.5 px-2 rounded-xl text-[10px] font-mono font-bold uppercase flex items-center justify-center gap-1.5 transition-all text-center"
+              >
+                <ExternalLink className="w-3 h-3 text-blue-400 shrink-0" />
+                <span>Android Deep Link</span>
+              </a>
 
-          {!isMobileDevice && (
-            <div className="p-3 bg-zinc-900/90 border border-amber-500/30 rounded-xl text-left space-y-1">
-              <div className="flex items-center gap-1.5 text-amber-400 text-[11px] font-mono font-bold">
-                <AlertCircle className="w-3.5 h-3.5 shrink-0" />
-                <span>Desktop / Web Browser Notice</span>
-              </div>
-              <p className="text-[10px] text-zinc-400 font-mono leading-relaxed">
-                App deep links (<code className="text-amber-300">gcash://</code>) open the app directly on mobile smartphones. If you are on desktop, open the GCash app on your mobile phone and scan the QR code below.
-              </p>
+              <a
+                href={playStoreUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="bg-zinc-900 hover:bg-zinc-800 text-zinc-200 border border-zinc-700 py-2.5 px-2 rounded-xl text-[10px] font-mono font-bold uppercase flex items-center justify-center gap-1.5 transition-all text-center"
+              >
+                <ExternalLink className="w-3 h-3 text-emerald-400 shrink-0" />
+                <span>Google Play Store</span>
+              </a>
             </div>
-          )}
+          </div>
 
           {/* QR Code Display section if available */}
           {qrUrl && (
@@ -186,11 +245,12 @@ export const AppLauncherModal: React.FC<AppLauncherModalProps> = ({
 
           {/* Return Guidance Notice */}
           <div className="p-3 bg-amber-950/40 border border-amber-500/30 rounded-xl text-center space-y-1">
-            <p className="text-[11px] font-mono text-amber-300 font-bold">
-              ⚠️ Return here after sending payment
+            <p className="text-[11px] font-mono text-amber-300 font-bold flex items-center justify-center gap-1">
+              <AlertCircle className="w-3.5 h-3.5" />
+              <span>Step 2: Enter Transaction Reference No.</span>
             </p>
-            <p className="text-[10px] font-mono text-zinc-400">
-              Copy the real 10-13 digit Transaction Reference Number from your {appName} receipt and paste it in the checkout drawer to complete your order.
+            <p className="text-[10px] font-mono text-zinc-400 leading-normal">
+              After sending the payment in your {appName} app, copy the 10-13 digit Reference Number from the transaction SMS or receipt and paste it into checkout.
             </p>
           </div>
         </div>
@@ -198,3 +258,4 @@ export const AppLauncherModal: React.FC<AppLauncherModalProps> = ({
     </div>
   );
 };
+

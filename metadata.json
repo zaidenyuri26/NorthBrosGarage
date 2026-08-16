@@ -1,6 +1,6 @@
 {
   "name": "NorthBros Garage",
-  "description": "Premium automotive performance parts shop and service booking platform with customer & admin dashboard powered by Firebase.",
+  "description": "Progressive Web App (PWA) & mobile-optimized JDM automotive performance parts store and workshop booking platform powered by Firebase Firestore.",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

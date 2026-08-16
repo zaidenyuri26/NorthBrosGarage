@@ -1,0 +1,61 @@
+{
+  "name": "NorthBros Garage | JDM Performance & Tuning",
+  "short_name": "NorthBros",
+  "description": "Authorized Japanese performance parts, turbo builds, ECU tuning & dyno services.",
+  "start_url": "/",
+  "id": "/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#09090b",
+  "theme_color": "#09090b",
+  "categories": ["shopping", "automotive", "lifestyle"],
+  "icons": [
+    {
+      "src": "/icon-192.svg",
+      "sizes": "192x192",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon-192.svg",
+      "sizes": "192x192",
+      "type": "image/svg+xml",
+      "purpose": "maskable"
+    },
+    {
+      "src": "/icon-512.svg",
+      "sizes": "512x512",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon-512.svg",
+      "sizes": "512x512",
+      "type": "image/svg+xml",
+      "purpose": "maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Browse Parts",
+      "short_name": "Parts",
+      "description": "Explore JDM performance components",
+      "url": "/#performance-parts",
+      "icons": [{ "src": "/icon-192.svg", "sizes": "192x192" }]
+    },
+    {
+      "name": "Garage Services",
+      "short_name": "Services",
+      "description": "Dyno tuning & track builds",
+      "url": "/#services-section",
+      "icons": [{ "src": "/icon-192.svg", "sizes": "192x192" }]
+    },
+    {
+      "name": "Vehicle Fitment",
+      "short_name": "Fitment",
+      "description": "Verify vehicle compatibility",
+      "url": "/#fitment-selector",
+      "icons": [{ "src": "/icon-192.svg", "sizes": "192x192" }]
+    }
+  ]
+}

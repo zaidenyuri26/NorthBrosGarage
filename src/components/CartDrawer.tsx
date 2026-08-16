@@ -327,17 +327,6 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
     );
 
     setAppLauncherType('gcash');
-
-    // Attempt direct top window navigation if supported
-    try {
-      if (window.top) {
-        window.top.location.href = 'gcash://';
-      } else {
-        window.location.href = 'gcash://';
-      }
-    } catch {
-      // Fallback handled by AppLauncherModal
-    }
   };
 
   const handleOpenMayaApp = () => {
@@ -351,16 +340,6 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
     );
 
     setAppLauncherType('paymaya');
-
-    try {
-      if (window.top) {
-        window.top.location.href = 'paymaya://';
-      } else {
-        window.location.href = 'paymaya://';
-      }
-    } catch {
-      // Fallback handled by AppLauncherModal
-    }
   };
 
   const handleReceiptUpload = (e: React.ChangeEvent<HTMLInputElement>) => {

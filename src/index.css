@@ -4,11 +4,36 @@
   --image-global-bg: url('/src/assets/images/global_bg_1786622019879.jpg');
 }
 
+html {
+  scroll-behavior: smooth;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+  width: 100%;
+  max-width: 100vw;
+  overflow-x: hidden;
+}
+
 body {
   position: relative;
   min-height: 100vh;
+  width: 100%;
+  max-width: 100vw;
+  overflow-x: hidden;
+  margin: 0;
+  padding: 0;
   color: #f4f4f5; /* zinc-100 fallback */
   background-color: #09090b; /* zinc-950 fallback to ensure contrast */
+  touch-action: manipulation;
+}
+
+#root {
+  width: 100%;
+  max-width: 100vw;
+  overflow-x: hidden;
+  min-height: 100vh;
 }
 
 body::before {
@@ -23,7 +48,7 @@ body::before {
   background-position: center;
   background-attachment: fixed;
   background-repeat: no-repeat;
-  opacity: 0.5; /* Reduced opacity to 50% as requested */
+  opacity: 0.5;
   z-index: -1;
   pointer-events: none;
 }
@@ -41,6 +66,7 @@ body::before {
   display: flex;
   width: max-content;
   animation: marquee 22s linear infinite;
+  will-change: transform;
 }
 
 .animate-marquee:hover {
@@ -110,20 +136,14 @@ body::before {
 /* Prevent scroll lag on low-end GPUs by disabling excessive repainting */
 * {
   -webkit-tap-highlight-color: transparent;
-}
-
-/* Smooth hardware accelerated scrolling */
-html {
-  scroll-behavior: smooth;
-  text-rendering: optimizeLegibility;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
+  box-sizing: border-box;
 }
 
 /* Optimize image rendering on budget devices */
 img {
   content-visibility: auto;
   image-rendering: -webkit-optimize-contrast;
+  max-width: 100%;
 }
 
 /* Optimize heavy repeating card lists with CSS containment */
@@ -139,6 +159,15 @@ img {
   backface-visibility: hidden;
   perspective: 1000px;
   will-change: transform, opacity;
+}
+
+/* Safe area insets for notched phones & Android gesture nav bar */
+.pb-safe {
+  padding-bottom: max(env(safe-area-inset-bottom, 0px), 12px);
+}
+
+.pt-safe {
+  padding-top: max(env(safe-area-inset-top, 0px), 12px);
 }
 
 /* Fallback for older mobile devices that stutter with heavy backdrop-filter blur */
