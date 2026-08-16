@@ -1,8 +1,9 @@
-import React from 'react';
-import { ChevronRight, ChevronLeft } from 'lucide-react';
+import React, { useState, useMemo, useEffect } from 'react';
+import { ChevronRight, ChevronLeft, Maximize2 } from 'lucide-react';
 import { BrandBadgesBar, NorthBrosAngledEmblem, BrandHeader } from './BrandHeader';
 import { Product, SiteSettings } from '../types';
 import { MediaShowcase } from './MediaShowcase';
+import { MediaLightboxModal, LightboxMediaItem } from './MediaLightboxModal';
 
 interface HeroProps {
   onExploreParts: () => void;
@@ -31,7 +32,7 @@ export const Hero: React.FC<HeroProps> = ({
   const quickTags = siteSettings?.heroQuickTags || ['HKS Exhausts', 'RAYS Wheels', 'Spoon Brakes', 'BRIDE Seats', 'GReddy Turbos'];
 
   // Multi-image Hero Carousel logic
-  const allHeroImages = React.useMemo(() => {
+  const allHeroImages = useMemo(() => {
     const list: string[] = [];
     if (image) list.push(image);
     if (siteSettings?.heroBannerImages && siteSettings.heroBannerImages.length > 0) {
@@ -42,15 +43,27 @@ export const Hero: React.FC<HeroProps> = ({
     return list;
   }, [image, siteSettings?.heroBannerImages]);
 
-  const [activeSlide, setActiveSlide] = React.useState(0);
+  const [activeSlide, setActiveSlide] = useState(0);
+  const [isLightboxOpen, setIsLightboxOpen] = useState(false);
 
-  React.useEffect(() => {
-    if (allHeroImages.length <= 1) return;
+  const lightboxItems: LightboxMediaItem[] = useMemo(() => {
+    return allHeroImages.map((src, idx) => ({
+      id: `hero-${idx}`,
+      src,
+      title: `${siteSettings?.brandName || 'NorthBros Garage'} • Banner Showcase #${idx + 1}`,
+      subtitle: `${title1} ${title2}`,
+      description: description,
+      category: 'SHOWROOM SHOWCASE',
+    }));
+  }, [allHeroImages, siteSettings?.brandName, title1, title2, description]);
+
+  useEffect(() => {
+    if (allHeroImages.length <= 1 || isLightboxOpen) return;
     const interval = setInterval(() => {
       setActiveSlide((prev) => (prev + 1) % allHeroImages.length);
     }, 4500);
     return () => clearInterval(interval);
-  }, [allHeroImages]);
+  }, [allHeroImages, isLightboxOpen]);
 
   const inStockCount = products.filter(p => p.stock > 0).length;
 
@@ -146,7 +159,15 @@ export const Hero: React.FC<HeroProps> = ({
 
           {/* Right Visual Image Banner */}
           <div className="lg:col-span-7 relative">
-            <div className="relative rounded-2xl overflow-hidden border border-zinc-800 shadow-2xl bg-zinc-900 group">
+            <div 
+              className="relative rounded-2xl overflow-hidden border border-zinc-800 shadow-2xl bg-zinc-900 group cursor-pointer"
+              onClick={() => {
+                if (allHeroImages.length > 0) {
+                  setIsLightboxOpen(true);
+                }
+              }}
+              title="Click to expand high-res banner showcase"
+            >
               
               {/* Image or Clean Garage Showcase */}
               {allHeroImages.length > 0 ? (
@@ -168,13 +189,19 @@ export const Hero: React.FC<HeroProps> = ({
                     </div>
                   ))}
 
+                  {/* Expand Hint */}
+                  <div className="absolute top-4 right-4 z-20 bg-zinc-950/80 hover:bg-amber-500 text-zinc-300 hover:text-zinc-950 border border-zinc-700/80 px-3 py-1.5 rounded-full font-mono text-xs font-bold flex items-center gap-1.5 backdrop-blur-md transition-all shadow-xl">
+                    <Maximize2 className="w-3.5 h-3.5" />
+                    <span>VIEW BANNER PHOTOS ({allHeroImages.length})</span>
+                  </div>
+
                   {/* Manual Arrow Controls */}
                   {allHeroImages.length > 1 && (
                     <>
                       <button
                         type="button"
                         onClick={(e) => {
-                          e.preventDefault();
+                          e.stopPropagation();
                           setActiveSlide((prev) => (prev - 1 + allHeroImages.length) % allHeroImages.length);
                         }}
                         className="absolute left-3 top-1/2 -translate-y-1/2 z-20 w-8 h-8 rounded-full bg-zinc-950/80 hover:bg-zinc-900 hover:text-amber-400 text-white flex items-center justify-center border border-zinc-800/80 transition-colors"
@@ -185,7 +212,7 @@ export const Hero: React.FC<HeroProps> = ({
                       <button
                         type="button"
                         onClick={(e) => {
-                          e.preventDefault();
+                          e.stopPropagation();
                           setActiveSlide((prev) => (prev + 1) % allHeroImages.length);
                         }}
                         className="absolute right-3 top-1/2 -translate-y-1/2 z-20 w-8 h-8 rounded-full bg-zinc-950/80 hover:bg-zinc-900 hover:text-amber-400 text-white flex items-center justify-center border border-zinc-800/80 transition-colors"
@@ -234,7 +261,10 @@ export const Hero: React.FC<HeroProps> = ({
                     <button
                       key={idx}
                       type="button"
-                      onClick={() => setActiveSlide(idx)}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setActiveSlide(idx);
+                      }}
                       className={`w-1.5 h-1.5 rounded-full transition-all ${
                         idx === activeSlide ? 'bg-amber-500 w-4' : 'bg-zinc-500 hover:bg-zinc-300'
                       }`}
@@ -252,6 +282,14 @@ export const Hero: React.FC<HeroProps> = ({
 
       {/* JDM Brands Strip */}
       <BrandBadgesBar />
+
+      {/* FULLSCREEN HERO LIGHTBOX MODAL */}
+      <MediaLightboxModal
+        isOpen={isLightboxOpen}
+        onClose={() => setIsLightboxOpen(false)}
+        items={lightboxItems}
+        initialIndex={activeSlide}
+      />
     </div>
   );
 };

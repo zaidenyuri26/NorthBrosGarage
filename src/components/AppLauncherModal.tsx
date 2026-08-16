@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Smartphone, ExternalLink, QrCode, CheckCircle2, X, AlertCircle, Copy, Check, ArrowUpRight } from 'lucide-react';
+import { Smartphone, ExternalLink, QrCode, CheckCircle2, X, AlertCircle, Copy, Check, ArrowUpRight, Download, Sparkles } from 'lucide-react';
 
 interface AppLauncherModalProps {
   isOpen: boolean;
@@ -25,12 +25,13 @@ export const AppLauncherModal: React.FC<AppLauncherModalProps> = ({
 }) => {
   const [copied, setCopied] = useState(false);
   const [copiedType, setCopiedType] = useState<'all' | 'number' | 'amount' | null>(null);
+  const [launchNotice, setLaunchNotice] = useState<string | null>(null);
 
   if (!isOpen) return null;
 
   const isGcash = appType === 'gcash';
   const appName = isGcash ? 'GCash' : 'Maya';
-  const themeBorder = isGcash ? 'border-blue-500/40' : 'border-emerald-500/40';
+  const themeBorder = isGcash ? 'border-blue-500/50' : 'border-emerald-500/50';
 
   // Deep links, Intent URIs & Store Fallbacks
   const customScheme = isGcash ? 'gcash://' : 'paymaya://';
@@ -55,18 +56,23 @@ export const AppLauncherModal: React.FC<AppLauncherModalProps> = ({
     }, 2500);
   };
 
-  const handleLaunchAttempt = (url: string) => {
+  // Launch scheme directly on current window without window.open(_blank)
+  // to avoid opening an empty white tab
+  const handleDirectLaunch = (e: React.MouseEvent, url: string, label: string) => {
+    e.preventDefault();
+    // Copy account number automatically so user can paste in app
     handleCopy(accountNumber, 'number');
-    
-    // First try opening directly
+    setLaunchNotice(`Opening ${appName}... Number copied to clipboard!`);
+
     try {
-      const w = window.open(url, '_blank');
-      if (!w || w.closed || typeof w.closed === 'undefined') {
-        window.location.href = url;
-      }
-    } catch {
       window.location.href = url;
+    } catch (err) {
+      console.warn('Direct launch failed:', err);
     }
+
+    setTimeout(() => {
+      setLaunchNotice(`If ${appName} didn't launch automatically, use the Play Store / App Store options or scan the QR code below.`);
+    }, 3000);
   };
 
   return (
@@ -85,13 +91,14 @@ export const AppLauncherModal: React.FC<AppLauncherModalProps> = ({
               <h3 className="font-bold text-sm leading-none font-mono uppercase tracking-wider">
                 Official {appName} Transfer
               </h3>
-              <p className="text-[10px] text-white/80 font-mono">Direct Real-Time Transfer</p>
+              <p className="text-[10px] text-white/80 font-mono">Direct Mobile App & QR Ph Payment</p>
             </div>
           </div>
 
           <button
+            type="button"
             onClick={onClose}
-            className="p-1 hover:bg-white/20 rounded-lg transition-colors cursor-pointer"
+            className="p-1.5 hover:bg-white/20 rounded-lg transition-colors cursor-pointer"
           >
             <X className="w-5 h-5" />
           </button>
@@ -100,13 +107,13 @@ export const AppLauncherModal: React.FC<AppLauncherModalProps> = ({
         <div className="p-5 space-y-4">
           {/* Status Alert */}
           <div className="bg-zinc-900 border border-zinc-800 p-3.5 rounded-2xl flex items-start gap-3">
-            <div className={`p-2 rounded-xl ${isGcash ? 'bg-blue-500/20 text-blue-400' : 'bg-emerald-500/20 text-emerald-400'}`}>
+            <div className={`p-2 rounded-xl shrink-0 ${isGcash ? 'bg-blue-500/20 text-blue-400' : 'bg-emerald-500/20 text-emerald-400'}`}>
               <Smartphone className="w-5 h-5" />
             </div>
             <div className="text-xs font-mono space-y-1">
               <p className="font-bold text-white">Send payment via {appName}</p>
               <p className="text-zinc-400 text-[11px] leading-relaxed">
-                Send exactly <strong>₱{amount.toLocaleString()}</strong> to the merchant recipient below, then copy your receipt's Reference No.
+                Send exactly <strong className="text-emerald-400">₱{amount.toLocaleString()}</strong> to the verified merchant below, then copy your receipt's Reference No.
               </p>
             </div>
           </div>
@@ -168,14 +175,32 @@ export const AppLauncherModal: React.FC<AppLauncherModalProps> = ({
               </button>
             </div>
 
-            <p className="text-[10px] text-zinc-400 text-center">
-              Account Name: <strong className="text-white">{accountName}</strong>
-            </p>
+            <div className="flex items-center justify-between text-[11px] pt-1">
+              <span className="text-zinc-400">
+                Account Name: <strong className="text-white">{accountName}</strong>
+              </span>
+              <button
+                type="button"
+                onClick={() => handleCopy(`Recipient: ${accountNumber} | Amount: ₱${amount.toLocaleString()} | Name: ${accountName}`, 'all')}
+                className="text-[10px] text-amber-400 hover:underline flex items-center gap-1"
+              >
+                <Copy className="w-3 h-3" />
+                <span>{copied && copiedType === 'all' ? 'Copied All!' : 'Copy All Details'}</span>
+              </button>
+            </div>
           </div>
+
+          {/* Dynamic Launch Feedback Notice */}
+          {launchNotice && (
+            <div className="p-3 rounded-xl bg-blue-950/60 border border-blue-500/40 text-[11px] font-mono text-blue-200 animate-in fade-in duration-200 flex items-start gap-2">
+              <Sparkles className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
+              <span>{launchNotice}</span>
+            </div>
+          )}
 
           {/* Action Launcher Buttons */}
           <div className="space-y-2 pt-1">
-            {/* Optional Official Online Payment Portal if set */}
+            {/* Optional Official Online Payment Portal if configured */}
             {portalUrl && (
               <a
                 href={portalUrl}
@@ -189,53 +214,66 @@ export const AppLauncherModal: React.FC<AppLauncherModalProps> = ({
                 }`}
               >
                 <ExternalLink className="w-4 h-4 text-white" />
-                <span>Open Merchant Checkout Portal</span>
+                <span>Open Official Online Checkout Portal</span>
               </a>
             )}
 
-            {/* Primary Mobile App Launch Button */}
-            <a
-              href={customScheme}
-              onClick={() => handleLaunchAttempt(customScheme)}
-              className={`w-full py-3 px-3 rounded-xl text-xs font-mono font-black uppercase tracking-wider flex items-center justify-center gap-2 transition-all cursor-pointer shadow-md ${
+            {/* Primary Direct Mobile App Launch Button */}
+            <button
+              type="button"
+              onClick={(e) => handleDirectLaunch(e, customScheme, 'App')}
+              className={`w-full py-3.5 px-3 rounded-xl text-xs font-mono font-black uppercase tracking-wider flex items-center justify-center gap-2 transition-all cursor-pointer shadow-md ${
                 isGcash
-                  ? 'bg-blue-600 hover:bg-blue-500 text-white shadow-blue-600/25'
-                  : 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-emerald-600/25'
+                  ? 'bg-blue-600 hover:bg-blue-500 text-white shadow-blue-600/25 active:scale-98'
+                  : 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-emerald-600/25 active:scale-98'
               }`}
             >
               <Smartphone className="w-4 h-4" />
-              <span>Launch {appName} App</span>
-              <ArrowUpRight className="w-3.5 h-3.5 opacity-80" />
-            </a>
+              <span>Launch {appName} App directly</span>
+              <ArrowUpRight className="w-4 h-4 text-amber-300" />
+            </button>
 
-            {/* Android Intent Link / Store Fallback Grid */}
-            <div className="grid grid-cols-2 gap-2">
-              <a
-                href={androidIntent}
-                onClick={() => handleLaunchAttempt(androidIntent)}
-                className="bg-zinc-900 hover:bg-zinc-800 text-zinc-200 border border-zinc-700 py-2.5 px-2 rounded-xl text-[10px] font-mono font-bold uppercase flex items-center justify-center gap-1.5 transition-all text-center"
+            {/* App Store / Android Intent Options Grid */}
+            <div className="grid grid-cols-3 gap-1.5 pt-1">
+              <button
+                type="button"
+                onClick={(e) => handleDirectLaunch(e, androidIntent, 'Android Intent')}
+                className="bg-zinc-900 hover:bg-zinc-800 text-zinc-200 border border-zinc-700 py-2.5 px-2 rounded-xl text-[10px] font-mono font-bold uppercase flex items-center justify-center gap-1 transition-all text-center cursor-pointer"
+                title="Launch via Android Intent Protocol"
               >
                 <ExternalLink className="w-3 h-3 text-blue-400 shrink-0" />
-                <span>Android Deep Link</span>
-              </a>
+                <span>Android App</span>
+              </button>
 
               <a
                 href={playStoreUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="bg-zinc-900 hover:bg-zinc-800 text-zinc-200 border border-zinc-700 py-2.5 px-2 rounded-xl text-[10px] font-mono font-bold uppercase flex items-center justify-center gap-1.5 transition-all text-center"
+                className="bg-zinc-900 hover:bg-zinc-800 text-zinc-200 border border-zinc-700 py-2.5 px-2 rounded-xl text-[10px] font-mono font-bold uppercase flex items-center justify-center gap-1 transition-all text-center cursor-pointer"
+                title="Open Google Play Store"
               >
-                <ExternalLink className="w-3 h-3 text-emerald-400 shrink-0" />
-                <span>Google Play Store</span>
+                <Download className="w-3 h-3 text-emerald-400 shrink-0" />
+                <span>Play Store</span>
+              </a>
+
+              <a
+                href={appStoreUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="bg-zinc-900 hover:bg-zinc-800 text-zinc-200 border border-zinc-700 py-2.5 px-2 rounded-xl text-[10px] font-mono font-bold uppercase flex items-center justify-center gap-1 transition-all text-center cursor-pointer"
+                title="Open Apple App Store"
+              >
+                <Download className="w-3 h-3 text-sky-400 shrink-0" />
+                <span>App Store</span>
               </a>
             </div>
           </div>
 
           {/* QR Code Display section if available */}
           {qrUrl && (
-            <div className="pt-2 border-t border-zinc-800 text-center space-y-2">
+            <div className="pt-3 border-t border-zinc-800 text-center space-y-2">
               <span className="text-[11px] font-mono text-zinc-400 flex items-center justify-center gap-1">
-                <QrCode className="w-3.5 h-3.5 text-amber-400" /> Or Scan QR Code with {appName} Scanner
+                <QrCode className="w-3.5 h-3.5 text-amber-400" /> Scan QR Ph Code with {appName} Scanner
               </span>
               <div className="p-3 bg-white rounded-2xl inline-block shadow-lg max-w-[180px] mx-auto border-2 border-amber-400/50">
                 <img src={qrUrl} alt={`${appName} QR Code`} className="w-36 h-36 object-contain" />
@@ -250,7 +288,7 @@ export const AppLauncherModal: React.FC<AppLauncherModalProps> = ({
               <span>Step 2: Enter Transaction Reference No.</span>
             </p>
             <p className="text-[10px] font-mono text-zinc-400 leading-normal">
-              After sending the payment in your {appName} app, copy the 10-13 digit Reference Number from the transaction SMS or receipt and paste it into checkout.
+              After sending the payment in your {appName} app, copy the 10-13 digit Reference Number from your receipt/SMS and paste it into checkout.
             </p>
           </div>
         </div>
@@ -258,4 +296,5 @@ export const AppLauncherModal: React.FC<AppLauncherModalProps> = ({
     </div>
   );
 };
+
 

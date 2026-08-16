@@ -1,7 +1,8 @@
-import React from 'react';
-import { ShieldCheck, Award, Wrench, ChevronRight, ChevronLeft } from 'lucide-react';
+import React, { useState, useMemo } from 'react';
+import { ShieldCheck, Award, Wrench, ChevronRight, ChevronLeft, Maximize2, Sparkles, Image as ImageIcon } from 'lucide-react';
 import { SiteSettings } from '../types';
 import { MediaShowcase } from './MediaShowcase';
+import { MediaLightboxModal, LightboxMediaItem } from './MediaLightboxModal';
 
 interface GarageHighlightsProps {
   siteSettings?: SiteSettings;
@@ -9,6 +10,9 @@ interface GarageHighlightsProps {
 }
 
 export const GarageHighlights: React.FC<GarageHighlightsProps> = ({ siteSettings, onExploreServices }) => {
+  const [isLightboxOpen, setIsLightboxOpen] = useState(false);
+  const [activeSlide, setActiveSlide] = useState(0);
+
   const title = siteSettings?.aboutTitle || 'NORTHBROS MOTORSPORT HERITAGE';
   const description = siteSettings?.aboutDescription || 'Founded by dedicated circuit racers and master mechanics, NorthBros Garage delivers high-precision tuning, forged engine building, and authentic JDM performance parts to automotive enthusiasts nationwide.';
   const image = siteSettings?.aboutImage || '';
@@ -30,7 +34,7 @@ export const GarageHighlights: React.FC<GarageHighlightsProps> = ({ siteSettings
   };
 
   // Multi-image Highlights Carousel logic
-  const allAboutImages = React.useMemo(() => {
+  const allAboutImages = useMemo(() => {
     const list: string[] = [];
     if (image) list.push(image);
     if (siteSettings?.aboutImages && siteSettings.aboutImages.length > 0) {
@@ -41,15 +45,24 @@ export const GarageHighlights: React.FC<GarageHighlightsProps> = ({ siteSettings
     return list;
   }, [image, siteSettings?.aboutImages]);
 
-  const [activeSlide, setActiveSlide] = React.useState(0);
+  const lightboxItems: LightboxMediaItem[] = useMemo(() => {
+    return allAboutImages.map((src, idx) => ({
+      id: `heritage-${idx}`,
+      src,
+      title: `${siteSettings?.brandName || 'NorthBros Garage'} • Facility Bay #${idx + 1}`,
+      subtitle: title,
+      description: description,
+      category: 'WORKSHOP & HERITAGE',
+    }));
+  }, [allAboutImages, siteSettings?.brandName, title, description]);
 
   React.useEffect(() => {
-    if (allAboutImages.length <= 1) return;
+    if (allAboutImages.length <= 1 || isLightboxOpen) return;
     const interval = setInterval(() => {
       setActiveSlide((prev) => (prev + 1) % allAboutImages.length);
     }, 5000);
     return () => clearInterval(interval);
-  }, [allAboutImages]);
+  }, [allAboutImages, isLightboxOpen]);
 
   return (
     <section className="py-16 bg-transparent border-t border-zinc-800/80 relative overflow-hidden text-left">
@@ -58,7 +71,15 @@ export const GarageHighlights: React.FC<GarageHighlightsProps> = ({ siteSettings
           
           {/* Configurable Garage Picture Container */}
           <div className="lg:col-span-7 relative">
-            <div className="relative rounded-2xl overflow-hidden border border-zinc-800 shadow-2xl bg-zinc-950 group">
+            <div 
+              className="relative rounded-2xl overflow-hidden border border-zinc-800 shadow-2xl bg-zinc-950 group cursor-pointer"
+              onClick={() => {
+                if (allAboutImages.length > 0) {
+                  setIsLightboxOpen(true);
+                }
+              }}
+              title="Click to view full workshop & heritage media"
+            >
               {allAboutImages.length > 0 ? (
                 <div className="relative w-full h-[320px] sm:h-[500px] lg:h-[650px] overflow-hidden">
                   {allAboutImages.map((src, idx) => (
@@ -78,13 +99,19 @@ export const GarageHighlights: React.FC<GarageHighlightsProps> = ({ siteSettings
                     </div>
                   ))}
 
+                  {/* Expand Overlay Hint */}
+                  <div className="absolute top-4 right-4 z-20 bg-zinc-950/80 hover:bg-amber-500 text-zinc-300 hover:text-zinc-950 border border-zinc-700/80 px-3 py-1.5 rounded-full font-mono text-xs font-bold flex items-center gap-1.5 backdrop-blur-md transition-all shadow-xl">
+                    <Maximize2 className="w-3.5 h-3.5" />
+                    <span>VIEW FULL PHOTOS ({allAboutImages.length})</span>
+                  </div>
+
                   {/* Manual Arrow Controls */}
                   {allAboutImages.length > 1 && (
                     <>
                       <button
                         type="button"
                         onClick={(e) => {
-                          e.preventDefault();
+                          e.stopPropagation();
                           setActiveSlide((prev) => (prev - 1 + allAboutImages.length) % allAboutImages.length);
                         }}
                         className="absolute left-4 top-1/2 -translate-y-1/2 z-20 w-10 h-10 rounded-full bg-zinc-950/80 hover:bg-zinc-900 hover:text-amber-400 text-white flex items-center justify-center border border-zinc-800/80 transition-colors shadow-xl"
@@ -95,7 +122,7 @@ export const GarageHighlights: React.FC<GarageHighlightsProps> = ({ siteSettings
                       <button
                         type="button"
                         onClick={(e) => {
-                          e.preventDefault();
+                          e.stopPropagation();
                           setActiveSlide((prev) => (prev + 1) % allAboutImages.length);
                         }}
                         className="absolute right-4 top-1/2 -translate-y-1/2 z-20 w-10 h-10 rounded-full bg-zinc-950/80 hover:bg-zinc-900 hover:text-amber-400 text-white flex items-center justify-center border border-zinc-800/80 transition-colors shadow-xl"
@@ -116,7 +143,7 @@ export const GarageHighlights: React.FC<GarageHighlightsProps> = ({ siteSettings
                 </div>
               )}
               
-              <div className="absolute inset-0 bg-gradient-to-t from-zinc-950 via-zinc-950/40 to-transparent z-10" />
+              <div className="absolute inset-0 bg-gradient-to-t from-zinc-950 via-zinc-950/40 to-transparent z-10 pointer-events-none" />
 
               {/* Minimal Slide Indicators */}
               {allAboutImages.length > 1 && (
@@ -125,7 +152,10 @@ export const GarageHighlights: React.FC<GarageHighlightsProps> = ({ siteSettings
                     <button
                       key={idx}
                       type="button"
-                      onClick={() => setActiveSlide(idx)}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setActiveSlide(idx);
+                      }}
                       className={`w-2 h-2 rounded-full transition-all ${
                         idx === activeSlide ? 'bg-amber-500 w-6' : 'bg-zinc-600 hover:bg-zinc-400'
                       }`}
@@ -152,21 +182,41 @@ export const GarageHighlights: React.FC<GarageHighlightsProps> = ({ siteSettings
               {description}
             </p>
 
-            {onExploreServices && (
-              <div className="pt-4">
+            <div className="flex flex-wrap items-center gap-3 pt-2">
+              {allAboutImages.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => setIsLightboxOpen(true)}
+                  className="px-6 py-3.5 bg-zinc-900 hover:bg-zinc-800 text-amber-400 hover:text-white border border-zinc-700 rounded-xl font-mono text-sm font-bold flex items-center gap-2 transition-all shadow-lg"
+                >
+                  <Maximize2 className="w-4 h-4 text-amber-400" />
+                  <span>View All Gallery Photos ({allAboutImages.length})</span>
+                </button>
+              )}
+
+              {onExploreServices && (
                 <button
                   onClick={onExploreServices}
-                  className="px-8 py-4 bg-amber-500 hover:bg-amber-600 text-black font-mono text-sm font-bold uppercase rounded-xl transition-all flex items-center gap-3 shadow-[0_0_20px_rgba(245,158,11,0.3)] hover:shadow-[0_0_30px_rgba(245,158,11,0.5)] active:scale-95"
+                  className="px-7 py-3.5 bg-amber-500 hover:bg-amber-600 text-black font-mono text-sm font-bold uppercase rounded-xl transition-all flex items-center gap-2 shadow-[0_0_20px_rgba(245,158,11,0.3)] hover:shadow-[0_0_30px_rgba(245,158,11,0.5)] active:scale-95"
                 >
-                  <span>Explore Garage Services</span>
+                  <span>Explore Services</span>
                   <ChevronRight className="w-4 h-4" />
                 </button>
-              </div>
-            )}
+              )}
+            </div>
           </div>
 
         </div>
       </div>
+
+      {/* FULLSCREEN LIGHTBOX MODAL */}
+      <MediaLightboxModal
+        isOpen={isLightboxOpen}
+        onClose={() => setIsLightboxOpen(false)}
+        items={lightboxItems}
+        initialIndex={activeSlide}
+      />
     </section>
   );
 };
+

@@ -12,9 +12,12 @@ import {
   ensureInitialFirestoreCollectionsExist,
   DEFAULT_SITE_SETTINGS,
   fetchBuilds,
-  validateFirestoreConnection
+  validateFirestoreConnection,
+  saveUserCartToFirestore,
+  getUserCartFromFirestore
 } from './lib/dbService';
 import { Product, ServiceCategory, CartItem, UserProfile, SiteSettings, GalleryBuild } from './types';
+import { getStoredCart, saveStoredCart, mergeCartItems, getStoredCustomerDetails, saveStoredCustomerDetails } from './lib/cartStorage';
 import { useToast } from './context/ToastContext';
 
 import { Navbar } from './components/Navbar';
@@ -48,8 +51,16 @@ export default function App() {
   const [siteSettings, setSiteSettings] = useState<SiteSettings>(DEFAULT_SITE_SETTINGS);
   const [loading, setLoading] = useState(true);
 
-  // Shopping Cart
-  const [cart, setCart] = useState<CartItem[]>([]);
+  // Shopping Cart - loaded from localStorage on startup
+  const [cart, setCart] = useState<CartItem[]>(() => getStoredCart());
+
+  // Automatically save cart to localStorage and Firestore whenever cart changes
+  useEffect(() => {
+    saveStoredCart(cart);
+    if (user?.uid) {
+      saveUserCartToFirestore(user.uid, cart);
+    }
+  }, [cart, user?.uid]);
 
   // Navigation & Filtering
   const [searchQuery, setSearchQuery] = useState('');
@@ -115,18 +126,55 @@ export default function App() {
         const isAdminEmail = userEmail === 'zaidenyuri26@gmail.com';
         
         let profile = await getUserProfile(firebaseUser.uid);
+        const storedDetails = getStoredCustomerDetails();
+
         if (!profile) {
           profile = {
             uid: firebaseUser.uid,
             email: firebaseUser.email || '',
-            displayName: firebaseUser.displayName || (firebaseUser.email ? firebaseUser.email.split('@')[0] : 'User'),
+            displayName: firebaseUser.displayName || storedDetails.customerName || (firebaseUser.email ? firebaseUser.email.split('@')[0] : 'User'),
+            phone: storedDetails.phone || undefined,
+            shippingAddress: storedDetails.street ? {
+              street: storedDetails.street || '',
+              city: storedDetails.city || '',
+              state: storedDetails.state || '',
+              zipCode: storedDetails.zipCode || ''
+            } : undefined,
             role: isAdminEmail ? 'admin' : 'customer'
           };
-        } else if (isAdminEmail && profile.role !== 'admin') {
-          profile.role = 'admin';
+        } else {
+          if (isAdminEmail && profile.role !== 'admin') {
+            profile.role = 'admin';
+          }
+          // Merge local customer details into user profile if profile lacks them
+          if (!profile.phone && storedDetails.phone) {
+            profile.phone = storedDetails.phone;
+          }
+          if (!profile.shippingAddress?.street && storedDetails.street) {
+            profile.shippingAddress = {
+              street: storedDetails.street || '',
+              city: storedDetails.city || '',
+              state: storedDetails.state || '',
+              zipCode: storedDetails.zipCode || ''
+            };
+          }
         }
         await saveUserProfile(profile);
         setUser(profile);
+
+        // Seamlessly sync & merge cloud-saved cart with current cart
+        try {
+          const cloudCart = await getUserCartFromFirestore(firebaseUser.uid);
+          if (cloudCart && cloudCart.length > 0) {
+            setCart((currentLocalCart) => {
+              const merged = mergeCartItems(currentLocalCart, cloudCart);
+              saveStoredCart(merged);
+              return merged;
+            });
+          }
+        } catch (syncErr) {
+          console.log('Cloud cart sync note:', syncErr);
+        }
       } else {
         // Keep profile null or default guest
       }
@@ -161,27 +209,26 @@ export default function App() {
     setIsCustomerDashboardOpen(false);
   };
 
-  // Cart Functions
+  // Cart Functions (Persistent like Shopee/Lazada)
   const handleAddToCart = (product: Product) => {
-    if (!user) {
-      toast.info('Sign In Required', 'Please sign in to add performance parts to your garage cart.');
-      setIsAuthOpen(true);
-      return;
-    }
     const existing = cart.find((item) => item.product.id === product.id);
     const newQuantity = existing ? existing.quantity + 1 : 1;
     toast.cartAdded(product, newQuantity, () => setIsCartOpen(true));
 
     setCart((prevCart) => {
       const exists = prevCart.find((item) => item.product.id === product.id);
+      let updated: CartItem[];
       if (exists) {
-        return prevCart.map((item) =>
+        updated = prevCart.map((item) =>
           item.product.id === product.id
             ? { ...item, quantity: item.quantity + 1 }
             : item
         );
+      } else {
+        updated = [...prevCart, { product, quantity: 1 }];
       }
-      return [...prevCart, { product, quantity: 1 }];
+      saveStoredCart(updated);
+      return updated;
     });
   };
 
@@ -190,11 +237,13 @@ export default function App() {
       handleRemoveFromCart(productId);
       return;
     }
-    setCart((prevCart) =>
-      prevCart.map((item) =>
+    setCart((prevCart) => {
+      const updated = prevCart.map((item) =>
         item.product.id === productId ? { ...item, quantity } : item
-      )
-    );
+      );
+      saveStoredCart(updated);
+      return updated;
+    });
   };
 
   const handleRemoveFromCart = (productId: string) => {
@@ -202,7 +251,11 @@ export default function App() {
     if (target) {
       toast.cartRemoved(target.product.name, target.product.brand);
     }
-    setCart((prevCart) => prevCart.filter((item) => item.product.id !== productId));
+    setCart((prevCart) => {
+      const updated = prevCart.filter((item) => item.product.id !== productId);
+      saveStoredCart(updated);
+      return updated;
+    });
   };
 
   const handleClearCart = () => {
@@ -210,6 +263,7 @@ export default function App() {
       toast.cartCleared();
     }
     setCart([]);
+    saveStoredCart([]);
   };
 
   // Section Selector

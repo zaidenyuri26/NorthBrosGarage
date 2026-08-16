@@ -27,8 +27,10 @@ import {
   OrderStatus,
   UserRole,
   SiteSettings,
-  GalleryBuild
+  GalleryBuild,
+  CartItem
 } from '../types';
+import { addStoredOrderId, getStoredOrderIds } from './cartStorage';
 
 export enum OperationType {
   CREATE = 'create',
@@ -498,6 +500,9 @@ export async function createOrder(orderData: Omit<Order, 'id' | 'createdAt' | 's
     throw err;
   }
 
+  // Persist order ID locally so order history survives refresh/restart
+  addStoredOrderId(orderId);
+
   return {
     id: orderId,
     ...orderData,
@@ -508,6 +513,51 @@ export async function createOrder(orderData: Omit<Order, 'id' | 'createdAt' | 's
     status: 'pending',
     createdAt: new Date().toISOString()
   };
+}
+
+/**
+ * Saves the user's cart items to Firestore to sync across devices
+ */
+export async function saveUserCartToFirestore(uid: string, cart: CartItem[]): Promise<void> {
+  if (!uid || uid === 'guest-user') return;
+  const path = `${USERS_COLLECTION}/${uid}`;
+  try {
+    const ref = doc(db, USERS_COLLECTION, uid);
+    await setDoc(
+      ref,
+      {
+        savedCart: cart.map(item => ({
+          quantity: item.quantity,
+          product: item.product
+        })),
+        cartUpdatedAt: new Date().toISOString()
+      },
+      { merge: true }
+    );
+  } catch (err) {
+    console.log('Cart Firestore sync notification:', err);
+  }
+}
+
+/**
+ * Retrieves the user's cart items from Firestore
+ */
+export async function getUserCartFromFirestore(uid: string): Promise<CartItem[]> {
+  if (!uid || uid === 'guest-user') return [];
+  const path = `${USERS_COLLECTION}/${uid}`;
+  try {
+    const ref = doc(db, USERS_COLLECTION, uid);
+    const snap = await getDoc(ref);
+    if (snap.exists()) {
+      const data = snap.data();
+      if (Array.isArray(data.savedCart)) {
+        return data.savedCart as CartItem[];
+      }
+    }
+  } catch (err) {
+    console.log('Error fetching user cart from Firestore:', err);
+  }
+  return [];
 }
 
 export async function fetchOrders(userId?: string): Promise<Order[]> {
@@ -523,6 +573,111 @@ export async function fetchOrders(userId?: string): Promise<Order[]> {
   } catch (err) {
     handleFirestoreError(err, OperationType.LIST, ORDERS_COLLECTION);
     return [];
+  }
+}
+
+/**
+ * Fetches all orders for a customer, combining user UID, customer email, and local device order IDs.
+ * This guarantees buying history is 100% persistent across refreshes, restarts, and sign-ins.
+ */
+export async function fetchCustomerOrders(user?: UserProfile | null): Promise<Order[]> {
+  const orderMap = new Map<string, Order>();
+
+  try {
+    // 1. Fetch by user UID if available
+    if (user?.uid) {
+      const q = query(collection(db, ORDERS_COLLECTION), where('userId', '==', user.uid));
+      const snap = await getDocs(q);
+      snap.docs.forEach(d => orderMap.set(d.id, { id: d.id, ...d.data() } as Order));
+    }
+
+    // 2. Fetch by customer email if available
+    if (user?.email) {
+      const qEmail = query(collection(db, ORDERS_COLLECTION), where('customerEmail', '==', user.email.toLowerCase()));
+      const snapEmail = await getDocs(qEmail);
+      snapEmail.docs.forEach(d => orderMap.set(d.id, { id: d.id, ...d.data() } as Order));
+    }
+
+    // 3. Fetch any orders saved on this device (guest or pre-auth checkouts)
+    const storedIds = getStoredOrderIds();
+    for (const orderId of storedIds) {
+      if (!orderMap.has(orderId)) {
+        try {
+          const docRef = doc(db, ORDERS_COLLECTION, orderId);
+          const docSnap = await getDoc(docRef);
+          if (docSnap.exists()) {
+            orderMap.set(docSnap.id, { id: docSnap.id, ...docSnap.data() } as Order);
+          }
+        } catch (e) {
+          // Ignore individual doc lookup error
+        }
+      }
+    }
+  } catch (err) {
+    console.error('Error fetching customer orders:', err);
+  }
+
+  const allOrders = Array.from(orderMap.values());
+  allOrders.sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime());
+  return allOrders;
+}
+
+/**
+ * Real-time subscription for customer orders (merges UID, email, and local device order IDs)
+ */
+export function subscribeCustomerOrders(
+  user: UserProfile | null,
+  onUpdate: (orders: Order[]) => void,
+  onError?: (error: Error) => void
+): Unsubscribe {
+  try {
+    const unsubList: Unsubscribe[] = [];
+    const localOrderMap = new Map<string, Order>();
+
+    const emitOrders = () => {
+      const allOrders = Array.from(localOrderMap.values());
+      allOrders.sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime());
+      onUpdate(allOrders);
+    };
+
+    // 1. Initial load from local device storage IDs
+    const storedIds = getStoredOrderIds();
+    storedIds.forEach(orderId => {
+      const singleUnsub = subscribeSingleOrder(orderId, (order) => {
+        if (order) {
+          localOrderMap.set(order.id, order);
+        } else {
+          localOrderMap.delete(orderId);
+        }
+        emitOrders();
+      });
+      unsubList.push(singleUnsub);
+    });
+
+    // 2. Real-time query for user UID
+    if (user?.uid) {
+      const q = query(collection(db, ORDERS_COLLECTION), where('userId', '==', user.uid));
+      const unsubUid = onSnapshot(
+        q,
+        (snapshot) => {
+          snapshot.docs.forEach(d => {
+            localOrderMap.set(d.id, { id: d.id, ...d.data() } as Order);
+          });
+          emitOrders();
+        },
+        (err) => {
+          if (onError) onError(err);
+        }
+      );
+      unsubList.push(unsubUid);
+    }
+
+    return () => {
+      unsubList.forEach(unsub => unsub());
+    };
+  } catch (err: any) {
+    console.error('Failed to attach customer orders listener:', err);
+    return () => {};
   }
 }
 

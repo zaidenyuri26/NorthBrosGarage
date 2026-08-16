@@ -1,7 +1,8 @@
-import React, { useState, useEffect } from 'react';
-import { Camera, ChevronRight, Zap, Cpu, Compass, ShoppingCart, Eye, Sparkles, Video, Link } from 'lucide-react';
+import React, { useState, useEffect, useMemo } from 'react';
+import { Camera, ChevronRight, Zap, Cpu, Compass, ShoppingCart, Eye, Sparkles, Video, Link, Maximize2, Play, Image as ImageIcon, Layers } from 'lucide-react';
 import { Product, GalleryBuild, SiteSettings } from '../types';
 import { MediaShowcase } from './MediaShowcase';
+import { MediaLightboxModal, LightboxMediaItem } from './MediaLightboxModal';
 
 interface JdmGalleryProps {
   products: Product[];
@@ -24,6 +25,8 @@ export const JdmGallery: React.FC<JdmGalleryProps> = ({
 }) => {
   const [activeBuildId, setActiveBuildId] = useState<string>('');
   const [activeImageIndex, setActiveImageIndex] = useState(0);
+  const [isLightboxOpen, setIsLightboxOpen] = useState(false);
+  const [lightboxInitialIndex, setLightboxInitialIndex] = useState(0);
 
   // Automatically select the first build if activeBuildId is not set
   useEffect(() => {
@@ -43,28 +46,114 @@ export const JdmGallery: React.FC<JdmGalleryProps> = ({
   const activeBuild = builds.find((b) => b.id === activeBuildId) || builds[0];
 
   const buildImages = activeBuild 
-    ? [activeBuild.image, ...(activeBuild.additionalImages || []).filter(img => img.trim() !== '')]
+    ? [activeBuild.image, ...(activeBuild.additionalImages || []).filter(img => img && img.trim() !== '')]
     : [];
   const currentMediaUrl = buildImages[activeImageIndex] || buildImages[0];
 
   // Auto-carousel for build photos
   useEffect(() => {
-    if (buildImages.length > 1) {
+    if (buildImages.length > 1 && !isLightboxOpen) {
       const interval = setInterval(() => {
         setActiveImageIndex((prev) => (prev + 1) % buildImages.length);
-      }, 3500); // Rotate every 3.5 seconds
+      }, 4000); // Rotate every 4 seconds
       return () => clearInterval(interval);
     }
-  }, [buildImages.length, activeBuildId]);
+  }, [buildImages.length, activeBuildId, isLightboxOpen]);
 
-  // Find products matching current active build's parts keywords
-  const matchedProducts = products.filter((prod) =>
-    activeBuild?.partsKeywords?.some(
-      (kw) =>
-        prod.name.toLowerCase().includes(kw.toLowerCase()) ||
-        prod.brand.toLowerCase().includes(kw.toLowerCase())
-    )
-  );
+  // Construct comprehensive media list for lightbox (all photos and videos)
+  const lightboxMediaList: LightboxMediaItem[] = useMemo(() => {
+    if (!builds || builds.length === 0) return [];
+    
+    const list: LightboxMediaItem[] = [];
+
+    // First add active build photos and video
+    if (activeBuild) {
+      const images = [activeBuild.image, ...(activeBuild.additionalImages || []).filter(img => img && img.trim() !== '')];
+      images.forEach((img, idx) => {
+        list.push({
+          id: `${activeBuild.id}-img-${idx}`,
+          src: img,
+          title: activeBuild.name,
+          subtitle: `${activeBuild.model} • Photo #${idx + 1}`,
+          description: activeBuild.description,
+          category: 'PROJECT MACHINE',
+          engine: activeBuild.engine,
+          power: activeBuild.power,
+          color: activeBuild.color,
+          owner: activeBuild.owner,
+          instagram: activeBuild.instagram,
+          linkUrl: activeBuild.linkUrl,
+          videoUrl: activeBuild.videoUrl,
+        });
+      });
+
+      // If active build has a video, add it as a video item in the gallery
+      if (activeBuild.videoUrl) {
+        list.push({
+          id: `${activeBuild.id}-video`,
+          src: activeBuild.videoUrl,
+          title: `${activeBuild.name} (Build Video)`,
+          subtitle: `${activeBuild.model} • Official Track & Dyno Footage`,
+          description: activeBuild.description,
+          category: 'TUNER VIDEO',
+          engine: activeBuild.engine,
+          power: activeBuild.power,
+          color: activeBuild.color,
+          owner: activeBuild.owner,
+          instagram: activeBuild.instagram,
+          videoUrl: activeBuild.videoUrl,
+        });
+      }
+    }
+
+    // Then append media from all other builds in sequence
+    builds.forEach((b) => {
+      if (b.id !== activeBuild?.id) {
+        const bImgs = [b.image, ...(b.additionalImages || []).filter(img => img && img.trim() !== '')];
+        bImgs.forEach((img, idx) => {
+          list.push({
+            id: `${b.id}-img-${idx}`,
+            src: img,
+            title: b.name,
+            subtitle: `${b.model} • Photo #${idx + 1}`,
+            description: b.description,
+            category: 'PROJECT MACHINE',
+            engine: b.engine,
+            power: b.power,
+            color: b.color,
+            owner: b.owner,
+            instagram: b.instagram,
+            linkUrl: b.linkUrl,
+            videoUrl: b.videoUrl,
+          });
+        });
+
+        if (b.videoUrl) {
+          list.push({
+            id: `${b.id}-video`,
+            src: b.videoUrl,
+            title: `${b.name} (Build Video)`,
+            subtitle: `${b.model} • Official Dyno Footage`,
+            description: b.description,
+            category: 'TUNER VIDEO',
+            engine: b.engine,
+            power: b.power,
+            color: b.color,
+            owner: b.owner,
+            instagram: b.instagram,
+            videoUrl: b.videoUrl,
+          });
+        }
+      }
+    });
+
+    return list;
+  }, [builds, activeBuild]);
+
+  const openLightboxAt = (index: number) => {
+    setLightboxInitialIndex(index);
+    setIsLightboxOpen(true);
+  };
 
   const handleShopBuild = () => {
     if (activeBuild && activeBuild.partsKeywords && activeBuild.partsKeywords.length > 0) {
@@ -155,48 +244,73 @@ export const JdmGallery: React.FC<JdmGalleryProps> = ({
         {/* Featured Build Card Block */}
         <div className="max-w-5xl mx-auto items-stretch">
           
-          {/* Left: Interactive Build Photo & Specs */}
+          {/* Interactive Build Photo & Specs */}
           <div className="flex flex-col justify-between bg-zinc-950 border border-zinc-800 rounded-2xl overflow-hidden shadow-2xl relative group">
             
-            {/* Visual Header */}
-            <div className="relative h-[280px] sm:h-[380px] overflow-hidden">
+            {/* Visual Header / Clickable Lightbox Trigger */}
+            <div 
+              className="relative h-[300px] sm:h-[420px] overflow-hidden cursor-pointer"
+              onClick={() => openLightboxAt(activeImageIndex)}
+              title="Click to expand high-resolution photos & video in lightbox"
+            >
               <MediaShowcase
                 src={currentMediaUrl}
                 alt={activeBuild.name}
                 className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-102 opacity-90"
               />
-              <div className="absolute inset-0 bg-gradient-to-t from-zinc-950 via-zinc-950/40 to-transparent pointer-events-none" />
+              <div className="absolute inset-0 bg-gradient-to-t from-zinc-950 via-zinc-950/30 to-transparent pointer-events-none" />
 
               {/* Floating Social Badge */}
-              <a
-                href={`https://instagram.com/${activeBuild.instagram?.replace('@', '')}`}
-                target="_blank"
-                rel="noreferrer"
-                className="absolute top-4 left-4 bg-zinc-950/90 hover:bg-zinc-900 border border-zinc-800 text-sm font-mono text-zinc-300 hover:text-amber-400 px-3 py-1.5 rounded-full flex items-center gap-1.5 backdrop-blur-md transition-colors"
-              >
-                <span className="w-1.5 h-1.5 rounded-full bg-pink-500 animate-pulse" />
-                <span>{activeBuild.instagram}</span>
-              </a>
+              {activeBuild.instagram && (
+                <a
+                  href={`https://instagram.com/${activeBuild.instagram.replace('@', '')}`}
+                  target="_blank"
+                  rel="noreferrer"
+                  onClick={(e) => e.stopPropagation()}
+                  className="absolute top-4 left-4 bg-zinc-950/90 hover:bg-zinc-900 border border-zinc-800 text-sm font-mono text-zinc-300 hover:text-amber-400 px-3 py-1.5 rounded-full flex items-center gap-1.5 backdrop-blur-md transition-colors z-20"
+                >
+                  <span className="w-1.5 h-1.5 rounded-full bg-pink-500 animate-pulse" />
+                  <span>{activeBuild.instagram}</span>
+                </a>
+              )}
+
+              {/* Click to Zoom / Expand Hint Overlay */}
+              <div className="absolute top-4 left-1/2 -translate-x-1/2 z-20 bg-zinc-950/80 hover:bg-amber-500 text-zinc-300 hover:text-zinc-950 border border-zinc-700/80 px-3.5 py-1.5 rounded-full font-mono text-xs font-bold flex items-center gap-1.5 backdrop-blur-md transition-all shadow-xl group-hover:border-amber-400">
+                <Maximize2 className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">VIEW FULL MEDIA GALLERY</span>
+                <span className="sm:hidden">EXPAND</span>
+                <span className="text-amber-400 group-hover:text-zinc-950 font-black">({lightboxMediaList.length})</span>
+              </div>
 
               {/* Multiple Images Thumbnail Navigation */}
               {buildImages.length > 1 && (
-                <div className="absolute top-4 right-4 flex flex-col gap-2 z-20">
+                <div 
+                  className="absolute top-4 right-4 flex flex-col gap-2 z-20"
+                  onClick={(e) => e.stopPropagation()}
+                >
                   {buildImages.map((imgUrl, idx) => (
                     <button
                       key={idx}
-                      onClick={() => setActiveImageIndex(idx)}
-                      className={`w-12 h-12 rounded-lg border-2 overflow-hidden transition-all shadow-lg ${
+                      onClick={() => {
+                        setActiveImageIndex(idx);
+                        openLightboxAt(idx);
+                      }}
+                      className={`w-12 h-12 rounded-lg border-2 overflow-hidden transition-all shadow-lg relative ${
                         activeImageIndex === idx 
                           ? 'border-amber-400 scale-105' 
                           : 'border-zinc-800/60 opacity-60 hover:opacity-100 hover:border-zinc-600'
                       }`}
                       aria-label={`View photo ${idx + 1}`}
+                      title={`Click to view photo #${idx + 1}`}
                     >
                       <MediaShowcase 
                         src={imgUrl} 
                         alt="Thumbnail" 
                         className="w-full h-full object-cover"
                       />
+                      {activeImageIndex === idx && (
+                        <div className="absolute inset-0 bg-amber-500/20" />
+                      )}
                     </button>
                   ))}
                 </div>
@@ -220,33 +334,45 @@ export const JdmGallery: React.FC<JdmGalleryProps> = ({
                 "{activeBuild.description}"
               </p>
 
-              {/* Dynamic Action Buttons for Video or External links */}
-              {(activeBuild.videoUrl || activeBuild.linkUrl) && (
-                <div className="flex flex-wrap gap-2.5 pt-1">
-                  {activeBuild.videoUrl && (
-                    <a
-                      href={activeBuild.videoUrl}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="px-4 py-2 bg-zinc-900 hover:bg-zinc-800 text-amber-400 hover:text-white border border-zinc-800 rounded-xl flex items-center gap-2 font-mono text-sm font-bold transition-all"
-                    >
-                      <Video className="w-4 h-4 text-amber-400" />
-                      <span>Watch Build Video</span>
-                    </a>
-                  )}
-                  {activeBuild.linkUrl && (
-                    <a
-                      href={activeBuild.linkUrl}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="px-4 py-2 bg-zinc-900 hover:bg-zinc-800 text-amber-400 hover:text-white border border-zinc-800 rounded-xl flex items-center gap-2 font-mono text-sm font-bold transition-all"
-                    >
-                      <Link className="w-4 h-4 text-amber-400" />
-                      <span>Build specs & log</span>
-                    </a>
-                  )}
-                </div>
-              )}
+              {/* Dynamic Action Buttons for Video, Lightbox, or External links */}
+              <div className="flex flex-wrap items-center gap-2.5 pt-1">
+                {/* View Full Lightbox Button */}
+                <button
+                  type="button"
+                  onClick={() => openLightboxAt(activeImageIndex)}
+                  className="px-4 py-2 bg-amber-500 hover:bg-amber-400 text-zinc-950 font-mono text-sm font-black rounded-xl flex items-center gap-2 transition-all shadow-lg shadow-amber-500/10 active:scale-95"
+                >
+                  <Maximize2 className="w-4 h-4" />
+                  <span>Open Media Gallery ({lightboxMediaList.length} Items)</span>
+                </button>
+
+                {activeBuild.videoUrl && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      // Find video index in lightbox list
+                      const vidIdx = lightboxMediaList.findIndex(item => item.id?.includes('video'));
+                      openLightboxAt(vidIdx !== -1 ? vidIdx : 0);
+                    }}
+                    className="px-4 py-2 bg-zinc-900 hover:bg-zinc-800 text-amber-400 hover:text-white border border-zinc-800 rounded-xl flex items-center gap-2 font-mono text-sm font-bold transition-all"
+                  >
+                    <Video className="w-4 h-4 text-amber-400" />
+                    <span>Watch Build Video</span>
+                  </button>
+                )}
+
+                {activeBuild.linkUrl && (
+                  <a
+                    href={activeBuild.linkUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="px-4 py-2 bg-zinc-900 hover:bg-zinc-800 text-amber-400 hover:text-white border border-zinc-800 rounded-xl flex items-center gap-2 font-mono text-sm font-bold transition-all"
+                  >
+                    <Link className="w-4 h-4 text-amber-400" />
+                    <span>Build specs & log</span>
+                  </a>
+                )}
+              </div>
 
               {/* Detailed Performance Metrics */}
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 pt-4 border-t border-zinc-800/80 text-left">
@@ -287,6 +413,15 @@ export const JdmGallery: React.FC<JdmGalleryProps> = ({
         </div>
 
       </div>
+
+      {/* FULL-SCREEN MEDIA LIGHTBOX MODAL */}
+      <MediaLightboxModal
+        isOpen={isLightboxOpen}
+        onClose={() => setIsLightboxOpen(false)}
+        items={lightboxMediaList}
+        initialIndex={lightboxInitialIndex}
+      />
     </section>
   );
 };
+

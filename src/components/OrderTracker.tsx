@@ -23,7 +23,7 @@ import {
   Search
 } from 'lucide-react';
 import { Order, ServiceBooking, UserProfile, OrderStatus, BookingStatus } from '../types';
-import { subscribeUserOrders, subscribeUserBookings } from '../lib/dbService';
+import { subscribeCustomerOrders, fetchCustomerOrders, subscribeUserBookings } from '../lib/dbService';
 import { useToast } from '../context/ToastContext';
 
 interface OrderTrackerProps {
@@ -47,14 +47,20 @@ export const OrderTracker: React.FC<OrderTrackerProps> = ({
   const [searchQuery, setSearchQuery] = useState('');
   const [isRefreshing, setIsRefreshing] = useState(false);
 
-  // Set up real-time Firestore listeners for user UID
+  // Set up real-time Firestore listeners for customer orders & bookings
   useEffect(() => {
-    if (!user.uid) return;
     setLoading(true);
 
-    // 1. Real-time Orders Listener
-    const unsubOrders = subscribeUserOrders(
-      user.uid,
+    // 1. Initial load & Real-time Orders Listener (merges user UID, email, and local device orders)
+    fetchCustomerOrders(user).then((initOrders) => {
+      if (initOrders && initOrders.length > 0) {
+        setOrders(initOrders);
+      }
+      setLoading(false);
+    });
+
+    const unsubOrders = subscribeCustomerOrders(
+      user,
       (liveOrders) => {
         setOrders(liveOrders);
         setLastUpdated(new Date());
@@ -67,22 +73,25 @@ export const OrderTracker: React.FC<OrderTrackerProps> = ({
     );
 
     // 2. Real-time Service Bookings Listener
-    const unsubBookings = subscribeUserBookings(
-      user.uid,
-      (liveBookings) => {
-        setBookings(liveBookings);
-        setLastUpdated(new Date());
-      },
-      (err) => {
-        console.error('Bookings tracking stream error:', err);
-      }
-    );
+    let unsubBookings = () => {};
+    if (user?.uid) {
+      unsubBookings = subscribeUserBookings(
+        user.uid,
+        (liveBookings) => {
+          setBookings(liveBookings);
+          setLastUpdated(new Date());
+        },
+        (err) => {
+          console.error('Bookings tracking stream error:', err);
+        }
+      );
+    }
 
     return () => {
       unsubOrders();
       unsubBookings();
     };
-  }, [user.uid]);
+  }, [user?.uid, user?.email]);
 
   // Set initial selected item if orders populate
   useEffect(() => {

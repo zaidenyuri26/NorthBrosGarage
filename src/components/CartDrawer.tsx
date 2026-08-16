@@ -19,10 +19,15 @@ import {
   ExternalLink,
   ZoomIn,
   Tag,
-  FileText
+  FileText,
+  User,
+  MapPin,
+  Edit3,
+  ArrowLeft
 } from 'lucide-react';
 import { CartItem, UserProfile, SiteSettings, PaymentMethodType, Order } from '../types';
 import { createOrder, saveUserProfile, checkPaymentReferenceUnique, DEFAULT_SITE_SETTINGS } from '../lib/dbService';
+import { getStoredCustomerDetails, saveStoredCustomerDetails } from '../lib/cartStorage';
 import { useToast } from '../context/ToastContext';
 import { InvoiceModal } from './InvoiceModal';
 import { AppLauncherModal } from './AppLauncherModal';
@@ -49,16 +54,19 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
   siteSettings = DEFAULT_SITE_SETTINGS,
 }) => {
   const { toast } = useToast();
-  const [step, setStep] = useState<'cart' | 'checkout' | 'success'>('cart');
+  const [step, setStep] = useState<'cart' | 'customer_info' | 'payment' | 'success'>('cart');
   
-  // Customer Info State
-  const [customerName, setCustomerName] = useState(user?.displayName || '');
-  const [customerEmail, setCustomerEmail] = useState(user?.email || '');
-  const [phone, setPhone] = useState(user?.phone || '');
-  const [street, setStreet] = useState(user?.shippingAddress?.street || '');
-  const [city, setCity] = useState(user?.shippingAddress?.city || '');
-  const [state, setState] = useState(user?.shippingAddress?.state || '');
-  const [zipCode, setZipCode] = useState(user?.shippingAddress?.zipCode || '');
+  // Customer Info State - Initialized from persistent localStorage draft & user profile
+  const savedCustomerDraft = getStoredCustomerDetails();
+
+  const [customerName, setCustomerName] = useState(() => savedCustomerDraft.customerName || user?.displayName || '');
+  const [customerEmail, setCustomerEmail] = useState(() => savedCustomerDraft.customerEmail || user?.email || '');
+  const [phone, setPhone] = useState(() => savedCustomerDraft.phone || user?.phone || '');
+  const [street, setStreet] = useState(() => savedCustomerDraft.street || user?.shippingAddress?.street || '');
+  const [city, setCity] = useState(() => savedCustomerDraft.city || user?.shippingAddress?.city || '');
+  const [state, setState] = useState(() => savedCustomerDraft.state || user?.shippingAddress?.state || '');
+  const [zipCode, setZipCode] = useState(() => savedCustomerDraft.zipCode || user?.shippingAddress?.zipCode || '');
+  const [touchedCustomerInfo, setTouchedCustomerInfo] = useState(false);
   
   // Payment State
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethodType>('gcash');
@@ -225,19 +233,91 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
     return `https://api.qrserver.com/v1/create-qr-code/?size=600x600&data=${encodeURIComponent(rawPayload)}`;
   };
 
+  // Auto-save customer checkout details to localStorage on every input change so refresh never clears form fields
+  useEffect(() => {
+    saveStoredCustomerDetails({
+      customerName,
+      customerEmail,
+      phone,
+      street,
+      city,
+      state,
+      zipCode
+    });
+  }, [customerName, customerEmail, phone, street, city, state, zipCode]);
+
   useEffect(() => {
     if (user) {
-      setCustomerName(user.displayName || '');
-      setCustomerEmail(user.email || '');
-      setPhone(user.phone || '');
-      if (user.shippingAddress) {
-        setStreet(user.shippingAddress.street || '');
-        setCity(user.shippingAddress.city || '');
-        setState(user.shippingAddress.state || '');
-        setZipCode(user.shippingAddress.zipCode || '');
+      const draft = getStoredCustomerDetails();
+      setCustomerName(prev => (prev.trim() ? prev : (draft.customerName || user.displayName || '')));
+      setCustomerEmail(prev => (prev.trim() ? prev : (draft.customerEmail || user.email || '')));
+      setPhone(prev => (prev.trim() ? prev : (draft.phone || user.phone || '')));
+      if (user.shippingAddress || draft.street) {
+        setStreet(prev => (prev.trim() ? prev : (draft.street || user.shippingAddress?.street || '')));
+        setCity(prev => (prev.trim() ? prev : (draft.city || user.shippingAddress?.city || '')));
+        setState(prev => (prev.trim() ? prev : (draft.state || user.shippingAddress?.state || '')));
+        setZipCode(prev => (prev.trim() ? prev : (draft.zipCode || user.shippingAddress?.zipCode || '')));
       }
     }
   }, [user]);
+
+  // Customer Info Validation
+  const isNameValid = customerName.trim().length >= 2;
+  const isEmailValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(customerEmail.trim());
+  const isPhoneValid = phone.replace(/\D/g, '').length >= 10;
+  const isStreetValid = street.trim().length >= 3;
+  const isCityValid = city.trim().length >= 2;
+  const isStateValid = state.trim().length >= 2;
+  const isZipValid = zipCode.trim().length >= 3;
+  const isCustomerInfoValid = isNameValid && isEmailValid && isPhoneValid && isStreetValid && isCityValid && isStateValid && isZipValid;
+
+  const handleProceedToPayment = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    setTouchedCustomerInfo(true);
+    if (!isNameValid) {
+      toast.warning('Full Name Required', 'Please enter your full name for delivery.');
+      return;
+    }
+    if (!isEmailValid) {
+      toast.warning('Valid Email Required', 'Please enter a valid email address for order notifications.');
+      return;
+    }
+    if (!isPhoneValid) {
+      toast.warning('Mobile Number Required', 'Please enter a valid 10-11 digit Philippine mobile number (e.g. 0917 123 4567).');
+      return;
+    }
+    if (!isStreetValid || !isCityValid || !isStateValid || !isZipValid) {
+      toast.warning('Incomplete Address', 'Please complete your street, city, province, and ZIP code before proceeding.');
+      return;
+    }
+
+    // Persist details locally and to Firestore profile
+    saveStoredCustomerDetails({
+      customerName,
+      customerEmail,
+      phone,
+      street,
+      city,
+      state,
+      zipCode
+    });
+
+    if (user) {
+      try {
+        await saveUserProfile({
+          ...user,
+          displayName: customerName,
+          phone,
+          shippingAddress: { street, city, state, zipCode }
+        });
+      } catch (err) {
+        console.error('Failed to sync profile on proceed to payment:', err);
+      }
+    }
+
+    setStep('payment');
+    toast.success('Customer Details Saved', 'Please select your preferred payment method below.');
+  };
 
   // Active payment gateway details based directly on admin siteSettings
   const gcashEnabled = siteSettings?.paymentGcashEnabled ?? true;
@@ -395,6 +475,17 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
 
     setLoading(true);
     try {
+      // Always save customer details locally for future checkout speed
+      saveStoredCustomerDetails({
+        customerName,
+        customerEmail,
+        phone,
+        street,
+        city,
+        state,
+        zipCode
+      });
+
       // 1. Save Profile if requested and user is logged in
       if (user && saveProfile) {
         await saveUserProfile({
@@ -458,14 +549,74 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
           <div className="p-5 sm:p-6 border-b border-zinc-800 flex items-center justify-between">
             <div className="flex items-center gap-2">
               <ShoppingBag className="w-5 h-5 text-amber-400" />
-              <h2 className="text-lg sm:text-xl font-black text-white italic font-mono uppercase">
-                {step === 'cart' ? 'SHOPPING CART' : step === 'checkout' ? 'CHECKOUT & PAYMENT' : 'ORDER CONFIRMED'}
+              <h2 className="text-base sm:text-lg font-black text-white italic font-mono uppercase tracking-wide">
+                {step === 'cart' 
+                  ? 'SHOPPING CART' 
+                  : step === 'customer_info' 
+                  ? '1. CUSTOMER & DELIVERY INFO' 
+                  : step === 'payment' 
+                  ? '2. SELECT & COMPLETE PAYMENT' 
+                  : 'ORDER CONFIRMED'}
               </h2>
             </div>
             <button onClick={onClose} className="p-1.5 text-zinc-400 hover:text-white rounded-lg hover:bg-zinc-800 transition-colors">
               <X className="w-5 h-5" />
             </button>
           </div>
+
+          {/* Step Progress Tracker */}
+          {step !== 'success' && (
+            <div className="px-5 sm:px-6 pt-4 pb-1">
+              <div className="flex items-center justify-between bg-zinc-950 p-2.5 rounded-xl border border-zinc-800 text-xs font-mono">
+                <button
+                  type="button"
+                  onClick={() => setStep('cart')}
+                  className={`flex items-center gap-1.5 font-bold transition-colors cursor-pointer ${
+                    step === 'cart' ? 'text-amber-400' : 'text-zinc-400 hover:text-white'
+                  }`}
+                >
+                  <span className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] ${
+                    step === 'cart' ? 'bg-amber-500 text-zinc-950 font-black' : 'bg-zinc-800 text-zinc-300'
+                  }`}>1</span>
+                  <span>Cart</span>
+                </button>
+                <div className="w-5 sm:w-8 h-px bg-zinc-800" />
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (step === 'payment') setStep('customer_info');
+                  }}
+                  className={`flex items-center gap-1.5 font-bold transition-colors ${
+                    step === 'customer_info'
+                      ? 'text-amber-400'
+                      : step === 'payment'
+                      ? 'text-emerald-400 hover:text-emerald-300 cursor-pointer'
+                      : 'text-zinc-600'
+                  }`}
+                >
+                  <span className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] ${
+                    step === 'customer_info'
+                      ? 'bg-amber-500 text-zinc-950 font-black'
+                      : isCustomerInfoValid
+                      ? 'bg-emerald-500 text-zinc-950 font-black'
+                      : 'bg-zinc-800 text-zinc-600'
+                  }`}>
+                    {isCustomerInfoValid && step === 'payment' ? '✓' : '2'}
+                  </span>
+                  <span>Customer Details</span>
+                </button>
+                <div className="w-5 sm:w-8 h-px bg-zinc-800" />
+                <div className={`flex items-center gap-1.5 font-bold ${
+                  step === 'payment' ? 'text-amber-400' : 'text-zinc-600'
+                }`}>
+                  <span className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] ${
+                    step === 'payment' ? 'bg-amber-500 text-zinc-950 font-black' : 'bg-zinc-800 text-zinc-600'
+                  }`}>3</span>
+                  <span>Payment</span>
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* Body */}
           <div className="flex-1 overflow-y-auto p-5 sm:p-6 space-y-6">
@@ -532,86 +683,251 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
               </>
             )}
 
-            {/* Step 2: Checkout Form */}
-            {step === 'checkout' && (
-              <form id="checkout-form" onSubmit={handleCheckoutSubmit} className="space-y-5 text-sm">
-                <div className="p-3 bg-amber-500/10 border border-amber-500/30 rounded-xl text-amber-300 flex items-center gap-2 text-xs">
-                  <ShieldCheck className="w-4 h-4 shrink-0 text-amber-400" />
-                  <span>Direct QR Ph E-Wallet Payment with Instant Reference Verification</span>
+            {/* Step 2: Customer Details & Delivery Address */}
+            {step === 'customer_info' && (
+              <form id="customer-info-form" onSubmit={handleProceedToPayment} className="space-y-5 text-sm">
+                <div className="p-3 bg-amber-500/10 border border-amber-500/30 rounded-xl text-amber-300 flex items-start gap-2.5 text-xs">
+                  <ShieldCheck className="w-4 h-4 shrink-0 text-amber-400 mt-0.5" />
+                  <div className="space-y-0.5">
+                    <p className="font-bold font-mono uppercase">Step 1: Fill Customer Details</p>
+                    <p className="text-zinc-300 text-[11px]">
+                      Please complete all contact and shipping address fields below. Payment (GCash, Maya, COD, etc.) is unlocked right after this step.
+                    </p>
+                  </div>
                 </div>
 
                 {/* Contact Information */}
                 <div className="space-y-3">
-                  <h4 className="font-mono font-bold text-zinc-300 uppercase text-xs tracking-wider">1. Contact Information</h4>
-                  <input
-                    type="text"
-                    required
-                    placeholder="Full Name *"
-                    value={customerName || ''}
-                    onChange={(e) => setCustomerName(e.target.value)}
-                    className="w-full bg-zinc-950 border border-zinc-800 rounded-xl p-2.5 text-zinc-100 focus:border-amber-500 focus:outline-none"
-                  />
-                  <input
-                    type="email"
-                    required
-                    placeholder="Email Address *"
-                    value={customerEmail || ''}
-                    onChange={(e) => setCustomerEmail(e.target.value)}
-                    className="w-full bg-zinc-950 border border-zinc-800 rounded-xl p-2.5 text-zinc-100 focus:border-amber-500 focus:outline-none"
-                  />
-                  <input
-                    type="tel"
-                    required
-                    placeholder="Philippine Mobile Number (e.g. 0917 123 4567) *"
-                    value={phone || ''}
-                    onChange={(e) => setPhone(e.target.value)}
-                    className="w-full bg-zinc-950 border border-zinc-800 rounded-xl p-2.5 text-zinc-100 focus:border-amber-500 focus:outline-none"
-                  />
+                  <div className="flex items-center justify-between">
+                    <h4 className="font-mono font-bold text-zinc-300 uppercase text-xs tracking-wider flex items-center gap-1.5">
+                      <User className="w-3.5 h-3.5 text-amber-400" />
+                      <span>1. Contact Information</span>
+                    </h4>
+                    <span className="text-[10px] font-mono text-zinc-500">* All fields required</span>
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-mono text-zinc-400 mb-1">
+                      Full Name *
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      placeholder="e.g. Juan Dela Cruz"
+                      value={customerName || ''}
+                      onChange={(e) => setCustomerName(e.target.value)}
+                      className={`w-full bg-zinc-950 border rounded-xl p-2.5 text-zinc-100 focus:outline-none ${
+                        touchedCustomerInfo && !isNameValid
+                          ? 'border-red-500 bg-red-950/10 focus:border-red-400'
+                          : isNameValid
+                          ? 'border-zinc-800 focus:border-amber-500'
+                          : 'border-zinc-800 focus:border-amber-500'
+                      }`}
+                    />
+                    {touchedCustomerInfo && !isNameValid && (
+                      <p className="text-[11px] font-mono text-red-400 mt-1">Full name must be at least 2 characters.</p>
+                    )}
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-mono text-zinc-400 mb-1">
+                      Email Address * (For order receipts & tracking)
+                    </label>
+                    <input
+                      type="email"
+                      required
+                      placeholder="e.g. juandelacruz@gmail.com"
+                      value={customerEmail || ''}
+                      onChange={(e) => setCustomerEmail(e.target.value)}
+                      className={`w-full bg-zinc-950 border rounded-xl p-2.5 text-zinc-100 focus:outline-none ${
+                        touchedCustomerInfo && !isEmailValid
+                          ? 'border-red-500 bg-red-950/10 focus:border-red-400'
+                          : isEmailValid
+                          ? 'border-zinc-800 focus:border-amber-500'
+                          : 'border-zinc-800 focus:border-amber-500'
+                      }`}
+                    />
+                    {touchedCustomerInfo && !isEmailValid && (
+                      <p className="text-[11px] font-mono text-red-400 mt-1">Please enter a valid email address.</p>
+                    )}
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-mono text-zinc-400 mb-1">
+                      Philippine Mobile Number * (Rider delivery dispatch)
+                    </label>
+                    <input
+                      type="tel"
+                      required
+                      placeholder="e.g. 0917 123 4567 or 0998 765 4321"
+                      value={phone || ''}
+                      onChange={(e) => setPhone(e.target.value)}
+                      className={`w-full bg-zinc-950 border rounded-xl p-2.5 text-zinc-100 font-mono focus:outline-none ${
+                        touchedCustomerInfo && !isPhoneValid
+                          ? 'border-red-500 bg-red-950/10 focus:border-red-400'
+                          : isPhoneValid
+                          ? 'border-zinc-800 focus:border-amber-500'
+                          : 'border-zinc-800 focus:border-amber-500'
+                      }`}
+                    />
+                    {touchedCustomerInfo && !isPhoneValid && (
+                      <p className="text-[11px] font-mono text-red-400 mt-1">Please enter a valid 10-11 digit Philippine mobile number.</p>
+                    )}
+                  </div>
                 </div>
 
                 {/* Delivery Address */}
                 <div className="space-y-3 pt-2">
-                  <h4 className="font-mono font-bold text-zinc-300 uppercase text-xs tracking-wider">2. Delivery Address</h4>
-                  <input
-                    type="text"
-                    required
-                    placeholder="Street Address, Unit / Building *"
-                    value={street || ''}
-                    onChange={(e) => setStreet(e.target.value)}
-                    className="w-full bg-zinc-950 border border-zinc-800 rounded-xl p-2.5 text-zinc-100 focus:border-amber-500 focus:outline-none"
-                  />
-                  <div className="grid grid-cols-2 gap-2">
-                    <input
-                      type="text"
-                      required
-                      placeholder="City / Municipality *"
-                      value={city || ''}
-                      onChange={(e) => setCity(e.target.value)}
-                      className="w-full bg-zinc-950 border border-zinc-800 rounded-xl p-2.5 text-zinc-100 focus:border-amber-500 focus:outline-none"
-                    />
-                    <input
-                      type="text"
-                      required
-                      placeholder="Province / State *"
-                      value={state || ''}
-                      onChange={(e) => setState(e.target.value)}
-                      className="w-full bg-zinc-950 border border-zinc-800 rounded-xl p-2.5 text-zinc-100 focus:border-amber-500 focus:outline-none"
-                    />
+                  <div className="flex items-center justify-between">
+                    <h4 className="font-mono font-bold text-zinc-300 uppercase text-xs tracking-wider flex items-center gap-1.5">
+                      <MapPin className="w-3.5 h-3.5 text-amber-400" />
+                      <span>2. Delivery Address</span>
+                    </h4>
                   </div>
-                  <input
-                    type="text"
-                    required
-                    placeholder="ZIP / Postal Code *"
-                    value={zipCode || ''}
-                    onChange={(e) => setZipCode(e.target.value)}
-                    className="w-full bg-zinc-950 border border-zinc-800 rounded-xl p-2.5 text-zinc-100 focus:border-amber-500 focus:outline-none"
-                  />
+
+                  <div>
+                    <label className="block text-[11px] font-mono text-zinc-400 mb-1">
+                      House / Unit / Building / Street Address *
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      placeholder="e.g. Unit 4B, 123 Katipunan Ave, Brgy. Loyola"
+                      value={street || ''}
+                      onChange={(e) => setStreet(e.target.value)}
+                      className={`w-full bg-zinc-950 border rounded-xl p-2.5 text-zinc-100 focus:outline-none ${
+                        touchedCustomerInfo && !isStreetValid
+                          ? 'border-red-500 bg-red-950/10 focus:border-red-400'
+                          : 'border-zinc-800 focus:border-amber-500'
+                      }`}
+                    />
+                    {touchedCustomerInfo && !isStreetValid && (
+                      <p className="text-[11px] font-mono text-red-400 mt-1">Street address is required.</p>
+                    )}
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <label className="block text-[11px] font-mono text-zinc-400 mb-1">
+                        City / Municipality *
+                      </label>
+                      <input
+                        type="text"
+                        required
+                        placeholder="e.g. Quezon City"
+                        value={city || ''}
+                        onChange={(e) => setCity(e.target.value)}
+                        className={`w-full bg-zinc-950 border rounded-xl p-2.5 text-zinc-100 focus:outline-none ${
+                          touchedCustomerInfo && !isCityValid
+                            ? 'border-red-500 bg-red-950/10 focus:border-red-400'
+                            : 'border-zinc-800 focus:border-amber-500'
+                        }`}
+                      />
+                      {touchedCustomerInfo && !isCityValid && (
+                        <p className="text-[10px] font-mono text-red-400 mt-1">City required.</p>
+                      )}
+                    </div>
+
+                    <div>
+                      <label className="block text-[11px] font-mono text-zinc-400 mb-1">
+                        Province / State *
+                      </label>
+                      <input
+                        type="text"
+                        required
+                        placeholder="e.g. Metro Manila / Cavite"
+                        value={state || ''}
+                        onChange={(e) => setState(e.target.value)}
+                        className={`w-full bg-zinc-950 border rounded-xl p-2.5 text-zinc-100 focus:outline-none ${
+                          touchedCustomerInfo && !isStateValid
+                            ? 'border-red-500 bg-red-950/10 focus:border-red-400'
+                            : 'border-zinc-800 focus:border-amber-500'
+                        }`}
+                      />
+                      {touchedCustomerInfo && !isStateValid && (
+                        <p className="text-[10px] font-mono text-red-400 mt-1">Province required.</p>
+                      )}
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-mono text-zinc-400 mb-1">
+                      ZIP / Postal Code *
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      placeholder="e.g. 1108"
+                      value={zipCode || ''}
+                      onChange={(e) => setZipCode(e.target.value)}
+                      className={`w-full bg-zinc-950 border rounded-xl p-2.5 text-zinc-100 font-mono focus:outline-none ${
+                        touchedCustomerInfo && !isZipValid
+                          ? 'border-red-500 bg-red-950/10 focus:border-red-400'
+                          : 'border-zinc-800 focus:border-amber-500'
+                      }`}
+                    />
+                    {touchedCustomerInfo && !isZipValid && (
+                      <p className="text-[11px] font-mono text-red-400 mt-1">ZIP / Postal code is required.</p>
+                    )}
+                  </div>
+                </div>
+
+                {user && (
+                  <div className="flex items-center gap-2 pt-1">
+                    <input
+                      type="checkbox"
+                      id="save-profile-info"
+                      checked={saveProfile}
+                      onChange={(e) => setSaveProfile(e.target.checked)}
+                      className="w-4 h-4 accent-amber-500 rounded bg-zinc-900 border-zinc-800"
+                    />
+                    <label htmlFor="save-profile-info" className="text-[12px] font-mono text-zinc-400 cursor-pointer">
+                      Save shipping details to my Driver Profile
+                    </label>
+                  </div>
+                )}
+              </form>
+            )}
+
+            {/* Step 3: Payment & Order Finalization */}
+            {step === 'payment' && (
+              <form id="payment-form" onSubmit={handleCheckoutSubmit} className="space-y-5 text-sm">
+                
+                {/* Delivering To Customer Summary Card with Edit Button */}
+                <div className="bg-zinc-950 border border-zinc-800 rounded-2xl p-3.5 space-y-2">
+                  <div className="flex items-center justify-between border-b border-zinc-800/80 pb-2">
+                    <div className="flex items-center gap-1.5 text-xs font-mono font-bold text-amber-400 uppercase">
+                      <MapPin className="w-3.5 h-3.5" />
+                      <span>Delivering To:</span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setStep('customer_info')}
+                      className="text-[11px] font-mono font-bold text-amber-400 hover:text-amber-300 flex items-center gap-1 hover:underline cursor-pointer"
+                    >
+                      <Edit3 className="w-3 h-3" />
+                      <span>Edit Details</span>
+                    </button>
+                  </div>
+
+                  <div className="text-xs space-y-1">
+                    <div className="flex items-baseline justify-between">
+                      <span className="font-bold text-white text-sm">{customerName}</span>
+                      <span className="font-mono text-zinc-400 text-[11px]">{phone}</span>
+                    </div>
+                    <p className="text-zinc-400 text-xs leading-relaxed">
+                      {street}, {city}, {state} {zipCode}
+                    </p>
+                    <p className="text-zinc-500 text-[11px] font-mono">{customerEmail}</p>
+                  </div>
                 </div>
 
                 {/* Payment Method Selector */}
-                <div className="space-y-3 pt-2">
+                <div className="space-y-3">
                   <div className="flex items-center justify-between">
-                    <h4 className="font-mono font-bold text-zinc-300 uppercase text-xs tracking-wider">3. Select Payment Method</h4>
+                    <h4 className="font-mono font-bold text-zinc-300 uppercase text-xs tracking-wider">
+                      Select Payment Method
+                    </h4>
                     <span className="text-[11px] font-mono text-amber-400 font-semibold">QR Ph Ready</span>
                   </div>
 
@@ -628,7 +944,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                       <button
                         type="button"
                         onClick={() => setPaymentMethod('gcash')}
-                        className={`p-3 rounded-xl border text-left transition-all flex flex-col justify-between gap-2 relative overflow-hidden ${
+                        className={`p-3 rounded-xl border text-left transition-all flex flex-col justify-between gap-2 relative overflow-hidden cursor-pointer ${
                           paymentMethod === 'gcash'
                             ? 'bg-blue-950/40 border-blue-500 text-white shadow-[0_0_15px_rgba(59,130,246,0.2)]'
                             : 'bg-zinc-950 border-zinc-800 text-zinc-400 hover:border-zinc-700'
@@ -652,7 +968,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                       <button
                         type="button"
                         onClick={() => setPaymentMethod('paymaya')}
-                        className={`p-3 rounded-xl border text-left transition-all flex flex-col justify-between gap-2 relative overflow-hidden ${
+                        className={`p-3 rounded-xl border text-left transition-all flex flex-col justify-between gap-2 relative overflow-hidden cursor-pointer ${
                           paymentMethod === 'paymaya'
                             ? 'bg-emerald-950/40 border-emerald-500 text-white shadow-[0_0_15px_rgba(16,185,129,0.2)]'
                             : 'bg-zinc-950 border-zinc-800 text-zinc-400 hover:border-zinc-700'
@@ -676,7 +992,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                       <button
                         type="button"
                         onClick={() => setPaymentMethod('cod')}
-                        className={`p-3 rounded-xl border text-left transition-all flex flex-col justify-between gap-2 ${
+                        className={`p-3 rounded-xl border text-left transition-all flex flex-col justify-between gap-2 cursor-pointer ${
                           paymentMethod === 'cod'
                             ? 'bg-amber-500/20 border-amber-500 text-white'
                             : 'bg-zinc-950 border-zinc-800 text-zinc-400 hover:border-zinc-700'
@@ -695,7 +1011,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                       <button
                         type="button"
                         onClick={() => setPaymentMethod('bank_transfer')}
-                        className={`p-3 rounded-xl border text-left transition-all flex flex-col justify-between gap-2 ${
+                        className={`p-3 rounded-xl border text-left transition-all flex flex-col justify-between gap-2 cursor-pointer ${
                           paymentMethod === 'bank_transfer'
                             ? 'bg-purple-950/40 border-purple-500 text-white'
                             : 'bg-zinc-950 border-zinc-800 text-zinc-400 hover:border-zinc-700'
@@ -839,7 +1155,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                           <input
                             type="text"
                             required
-                            placeholder="Enter 10-13 digit Reference Number"
+                            placeholder="Enter 8-24 digit GCash Reference Number"
                             value={paymentReference}
                             onChange={(e) => setPaymentReference(e.target.value)}
                             className={`w-full bg-zinc-900 border rounded-xl p-2.5 text-white font-mono text-sm tracking-wider focus:outline-none ${
@@ -1220,25 +1536,10 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                     <span>All payment reference numbers are automatically matched with merchant banking records prior to dispatch.</span>
                   </div>
                 </div>
-
-                {user && (
-                  <div className="flex items-center gap-2 pt-2">
-                    <input
-                      type="checkbox"
-                      id="save-profile"
-                      checked={saveProfile}
-                      onChange={(e) => setSaveProfile(e.target.checked)}
-                      className="w-4 h-4 accent-amber-500 rounded bg-zinc-900 border-zinc-800"
-                    />
-                    <label htmlFor="save-profile" className="text-[12px] font-mono text-zinc-400 cursor-pointer">
-                      Save shipping details to my Driver Profile
-                    </label>
-                  </div>
-                )}
               </form>
             )}
 
-            {/* Step 3: Success Screen */}
+            {/* Step 4: Success Screen */}
             {step === 'success' && (
               <div className="py-6 text-center space-y-4">
                 <div className="w-16 h-16 bg-emerald-500/20 text-emerald-400 rounded-full flex items-center justify-center mx-auto shadow-[0_0_30px_rgba(16,185,129,0.2)]">
@@ -1376,18 +1677,48 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                 </div>
 
                 <button
-                  onClick={() => setStep('checkout')}
+                  onClick={() => setStep('customer_info')}
                   disabled={cart.length === 0}
                   id="cart-proceed-checkout-btn"
                   className="w-full bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-zinc-950 font-black py-3.5 px-4 rounded-xl text-sm uppercase tracking-wider flex items-center justify-center gap-2 transition-all disabled:opacity-50 shadow-lg shadow-amber-500/10 cursor-pointer"
                 >
-                  <span>Proceed to Checkout</span>
+                  <span>Proceed to Customer Info</span>
                   <ArrowRight className="w-4 h-4" />
                 </button>
               </>
             )}
 
-            {step === 'checkout' && (
+            {step === 'customer_info' && (
+              <div className="space-y-2">
+                <div className="flex items-center justify-between text-base font-mono font-bold pb-1">
+                  <span className="text-zinc-400 uppercase text-xs">Total to Pay</span>
+                  <span className="text-amber-400 text-lg">₱{totalAmount.toLocaleString()} PHP</span>
+                </div>
+
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setStep('cart')}
+                    className="w-1/3 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 font-bold py-3 px-3 rounded-xl text-xs uppercase transition-colors cursor-pointer flex items-center justify-center gap-1"
+                  >
+                    <ArrowLeft className="w-3.5 h-3.5" />
+                    <span>Cart</span>
+                  </button>
+
+                  <button
+                    type="submit"
+                    form="customer-info-form"
+                    id="proceed-to-payment-btn"
+                    className="flex-1 bg-amber-500 hover:bg-amber-400 text-zinc-950 font-black py-3 px-4 rounded-xl text-xs uppercase tracking-wider transition-all flex items-center justify-center gap-2 shadow-lg shadow-amber-500/20 cursor-pointer"
+                  >
+                    <span>Proceed to Payment</span>
+                    <ArrowRight className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {step === 'payment' && (
               <div className="space-y-2">
                 {!isPaymentReady && (
                   <div className="text-[11px] font-mono text-amber-400 bg-amber-950/40 border border-amber-500/30 px-3 py-1.5 rounded-lg flex items-center gap-1.5">
@@ -1403,15 +1734,16 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                 <div className="flex gap-2">
                   <button
                     type="button"
-                    onClick={() => setStep('cart')}
-                    className="w-1/3 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 font-bold py-3 px-3 rounded-xl text-xs uppercase transition-colors"
+                    onClick={() => setStep('customer_info')}
+                    className="w-1/3 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 font-bold py-3 px-3 rounded-xl text-xs uppercase transition-colors cursor-pointer flex items-center justify-center gap-1"
                   >
-                    Back
+                    <ArrowLeft className="w-3.5 h-3.5" />
+                    <span>Details</span>
                   </button>
 
                   <button
                     type="submit"
-                    form="checkout-form"
+                    form="payment-form"
                     disabled={loading || !isPaymentReady}
                     id="confirm-place-order-btn"
                     className={`flex-1 font-black py-3 px-4 rounded-xl text-xs uppercase tracking-wider transition-all flex items-center justify-center gap-2 ${

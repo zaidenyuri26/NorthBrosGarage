@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { User, ShoppingBag, Car, Shield, X, MapPin, Phone, CheckCircle2, History, Settings, ExternalLink, Plus, Navigation, Radio, Truck, FileText } from 'lucide-react';
 import { UserProfile, Order, Product } from '../types';
-import { fetchOrders, saveUserProfile, subscribeUserOrders } from '../lib/dbService';
+import { fetchCustomerOrders, saveUserProfile, subscribeCustomerOrders } from '../lib/dbService';
+import { saveStoredCustomerDetails } from '../lib/cartStorage';
 import { useToast } from '../context/ToastContext';
 import { OrderTracker } from './OrderTracker';
 import { InvoiceModal } from './InvoiceModal';
@@ -42,24 +43,31 @@ export const CustomerDashboard: React.FC<CustomerDashboardProps> = ({
   const [savedSuccess, setSavedSuccess] = useState(false);
 
   useEffect(() => {
-    if (!user.uid) return;
     setLoading(true);
 
-    // Subscribe to real-time order updates for this user
-    const unsub = subscribeUserOrders(
-      user.uid,
+    // Initial load from Firestore and persistent storage
+    fetchCustomerOrders(user).then((initOrders) => {
+      if (initOrders && initOrders.length > 0) {
+        setOrders(initOrders);
+      }
+      setLoading(false);
+    });
+
+    // Subscribe to real-time customer order updates (merging user UID, email, and local device order IDs)
+    const unsub = subscribeCustomerOrders(
+      user,
       (liveOrders) => {
         setOrders(liveOrders);
         setLoading(false);
       },
       (err) => {
-        console.error('Failed to subscribe to user orders:', err);
+        console.error('Failed to subscribe to customer orders:', err);
         setLoading(false);
       }
     );
 
     return () => unsub();
-  }, [user.uid]);
+  }, [user?.uid, user?.email]);
 
   const handleOrderAgain = (productId: string) => {
     const product = products.find(p => p.id === productId);
@@ -85,6 +93,14 @@ export const CustomerDashboard: React.FC<CustomerDashboardProps> = ({
         shippingAddress: { street, city, state, zipCode }
       };
       await saveUserProfile(updatedUser);
+      saveStoredCustomerDetails({
+        customerName: displayName,
+        phone,
+        street,
+        city,
+        state,
+        zipCode
+      });
       setSavedSuccess(true);
       toast.success('Profile Updated', 'Your customer details and delivery address were saved.');
       setTimeout(() => setSavedSuccess(false), 2000);
