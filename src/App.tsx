@@ -328,7 +328,7 @@ export default function App() {
 
 
         {/* Vehicle Fitment Guarantee Selector */}
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-8 pb-2" id="fitment-selector">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-4 sm:pt-6 pb-2" id="fitment-selector">
           <FitmentSelector
             selectedVehicle={selectedVehicle}
             onSelectVehicle={(vehicle) => updateVehicleFitment(vehicle)}

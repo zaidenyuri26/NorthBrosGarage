@@ -74,23 +74,23 @@ export const Hero: React.FC<HeroProps> = ({
       <div className="absolute top-0 right-0 w-1/2 h-full bg-[linear-gradient(135deg,_transparent_40%,_rgba(245,158,11,0.02)_100%)] pointer-events-none" />
 
       {/* Main Hero Container */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-12 pb-16 relative z-10">
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 items-center">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-4 sm:pt-6 lg:pt-8 pb-4 sm:pb-6 relative z-10">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8 items-center">
           
           {/* Left Text & Search Block */}
-          <div className="lg:col-span-5 space-y-6 text-left">
+          <div className="lg:col-span-5 space-y-3 sm:space-y-4 text-left">
             
             {/* Status Pill */}
-            <div className="inline-flex items-center gap-2 bg-zinc-900 border border-zinc-700 px-3 py-1.5 rounded-full text-sm font-mono font-medium text-zinc-200">
+            <div className="inline-flex items-center gap-2 bg-zinc-900 border border-zinc-700 px-2.5 py-1 rounded-full text-xs font-mono font-medium text-zinc-200">
               <span className="relative flex h-2 w-2">
                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
                 <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
               </span>
-              <span className="tracking-wide uppercase text-[11px] text-zinc-200 font-bold">{badge}</span>
+              <span className="tracking-wide uppercase text-[10px] sm:text-[11px] text-zinc-200 font-bold">{badge}</span>
             </div>
 
             {/* Headline */}
-            <h1 className="text-3xl sm:text-4xl lg:text-5xl font-black tracking-tight uppercase italic font-mono leading-[1.1] sm:leading-tight">
+            <h1 className="text-2xl sm:text-3xl lg:text-4xl font-black tracking-tight uppercase italic font-mono leading-[1.15]">
               <span className="brand-line1-text">
                 {title1}
               </span>
@@ -100,16 +100,16 @@ export const Hero: React.FC<HeroProps> = ({
               </span>
             </h1>
 
-            <p className="text-zinc-200 text-sm sm:text-lg leading-relaxed max-w-xl font-sans font-normal">
+            <p className="text-zinc-300 text-xs sm:text-sm leading-relaxed max-w-xl font-sans font-normal line-clamp-3">
               {description}
             </p>
 
             {/* Action Buttons */}
-            <div className="flex flex-col xs:flex-row items-stretch xs:items-center gap-3 sm:gap-4 pt-1">
+            <div className="flex flex-row items-center gap-2.5 sm:gap-3 pt-0.5">
               <button
                 onClick={onExploreParts}
                 id="hero-explore-parts-btn"
-                className="bg-white hover:bg-zinc-100 text-zinc-950 font-black px-6 py-3.5 sm:px-7 sm:py-4 rounded-xl text-sm sm:text-base uppercase tracking-wider shadow-xl shadow-white/5 active:scale-95 transition-all flex items-center justify-center gap-2 group"
+                className="bg-white hover:bg-zinc-100 text-zinc-950 font-black px-4 sm:px-5 py-2.5 sm:py-3 rounded-xl text-xs sm:text-sm uppercase tracking-wider shadow-lg active:scale-95 transition-all flex items-center justify-center gap-1.5 group shrink-0"
               >
                 <span>{primaryBtn}</span>
                 <ChevronRight className="w-4 h-4 text-zinc-950 group-hover:translate-x-0.5 transition-transform" />
@@ -118,7 +118,7 @@ export const Hero: React.FC<HeroProps> = ({
               <button
                 onClick={onExploreServices}
                 id="hero-explore-services-btn"
-                className="bg-zinc-900/90 border border-zinc-700 hover:border-amber-500/80 text-zinc-100 font-bold px-6 py-3.5 sm:py-4 rounded-xl text-sm sm:text-base uppercase tracking-wider transition-all hover:bg-zinc-800 text-center"
+                className="bg-zinc-900/90 border border-zinc-700 hover:border-amber-500/80 text-zinc-100 font-bold px-4 sm:px-5 py-2.5 sm:py-3 rounded-xl text-xs sm:text-sm uppercase tracking-wider transition-all hover:bg-zinc-800 text-center"
               >
                 {secondaryBtn}
               </button>
@@ -126,16 +126,16 @@ export const Hero: React.FC<HeroProps> = ({
 
             {/* Quick Tags / Pills */}
             {quickTags.length > 0 && (
-              <div className="pt-2 flex flex-wrap items-center gap-2">
-                <span className="text-[11px] font-mono text-zinc-400 uppercase font-bold">Trending:</span>
-                {quickTags.map((tag, i) => (
+              <div className="pt-1 flex flex-wrap items-center gap-1.5">
+                <span className="text-[10px] font-mono text-zinc-400 uppercase font-bold">Trending:</span>
+                {quickTags.slice(0, 4).map((tag, i) => (
                   <button
                     key={i}
                     onClick={() => {
                       setSearchQuery(tag);
                       onExploreParts();
                     }}
-                    className="text-[12px] font-mono bg-zinc-900 hover:bg-zinc-800 text-zinc-200 hover:text-amber-400 px-2.5 py-1 rounded-lg border border-zinc-700 transition-colors font-medium cursor-pointer"
+                    className="text-[11px] font-mono bg-zinc-900 hover:bg-zinc-800 text-zinc-200 hover:text-amber-400 px-2 py-0.5 rounded-md border border-zinc-700/80 transition-colors font-medium cursor-pointer"
                   >
                     #{tag}
                   </button>
@@ -144,14 +144,14 @@ export const Hero: React.FC<HeroProps> = ({
             )}
 
             {/* Quick Stats */}
-            <div className="pt-4 grid grid-cols-2 gap-4 border-t border-zinc-800/80 max-w-lg text-left">
+            <div className="pt-2 sm:pt-3 grid grid-cols-2 gap-3 border-t border-zinc-800/80 max-w-lg text-left">
               <div>
-                <p className="text-2xl font-mono font-black text-amber-500">{inStockCount}</p>
-                <p className="text-[12px] text-zinc-300 uppercase font-mono font-semibold">In Stock Parts</p>
+                <p className="text-xl sm:text-2xl font-mono font-black text-amber-500">{inStockCount}</p>
+                <p className="text-[11px] text-zinc-300 uppercase font-mono font-semibold">In Stock Parts</p>
               </div>
               <div>
-                <p className="text-2xl font-mono font-black text-white">DIRECT</p>
-                <p className="text-[12px] text-zinc-300 uppercase font-mono font-semibold">JDM Importers</p>
+                <p className="text-xl sm:text-2xl font-mono font-black text-white">DIRECT</p>
+                <p className="text-[11px] text-zinc-300 uppercase font-mono font-semibold">JDM Importers</p>
               </div>
             </div>
 
@@ -160,7 +160,7 @@ export const Hero: React.FC<HeroProps> = ({
           {/* Right Visual Image Banner */}
           <div className="lg:col-span-7 relative">
             <div 
-              className="relative rounded-2xl overflow-hidden border border-zinc-800 shadow-2xl bg-zinc-900 group cursor-pointer"
+              className="relative rounded-2xl overflow-hidden border border-zinc-800 shadow-xl bg-zinc-900 group cursor-pointer"
               onClick={() => {
                 if (allHeroImages.length > 0) {
                   setIsLightboxOpen(true);
@@ -171,7 +171,7 @@ export const Hero: React.FC<HeroProps> = ({
               
               {/* Image or Clean Garage Showcase */}
               {allHeroImages.length > 0 ? (
-                <div className="relative w-full h-[300px] sm:h-[500px] lg:h-[600px] overflow-hidden">
+                <div className="relative w-full h-[200px] sm:h-[280px] lg:h-[340px] xl:h-[360px] overflow-hidden">
                   {allHeroImages.map((src, idx) => (
                     <div
                       key={src + '-' + idx}
@@ -224,7 +224,7 @@ export const Hero: React.FC<HeroProps> = ({
                   )}
                 </div>
               ) : (
-                <div className="w-full h-[320px] sm:h-[500px] lg:h-[600px] bg-zinc-950 relative flex flex-col items-center justify-center p-6 text-center border border-zinc-800/80 overflow-hidden">
+                <div className="w-full h-[200px] sm:h-[280px] lg:h-[340px] xl:h-[360px] bg-zinc-950 relative flex flex-col items-center justify-center p-6 text-center border border-zinc-800/80 overflow-hidden">
                   {/* Dynamic Angled Split Background Lines */}
                   <div className="absolute inset-0 bg-gradient-to-tr from-zinc-950 via-zinc-900 to-zinc-950 opacity-90" />
                   

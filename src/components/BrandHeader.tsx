@@ -153,7 +153,7 @@ export const BrandBadgesBar: React.FC = () => {
   }));
 
   return (
-    <div className="relative w-full border-y border-zinc-800/80 py-4 sm:py-5 px-3 sm:px-6 overflow-hidden">
+    <div className="relative w-full border-y border-zinc-800/80 py-2.5 sm:py-3 px-3 sm:px-6 overflow-hidden">
       {/* Background Image with Overlay */}
       <div 
         className="absolute inset-0 bg-cover bg-center bg-no-repeat opacity-90 filter contrast-125"
@@ -161,10 +161,10 @@ export const BrandBadgesBar: React.FC = () => {
       />
       <div className="absolute inset-0 bg-gradient-to-b from-zinc-950/50 via-zinc-950/30 to-zinc-950/60 backdrop-blur-[0.5px]" />
 
-      <div className="relative z-10 max-w-6xl mx-auto space-y-2.5">
+      <div className="relative z-10 max-w-6xl mx-auto space-y-2">
         {/* Subtle Section Header */}
         <div className="flex items-center justify-between px-1">
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5">
             <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
             <span className="text-[10px] sm:text-[11px] font-mono font-bold tracking-[0.2em] text-zinc-300 uppercase">
               OFFICIAL JDM SPONSORS & BRAND PARTNERS
@@ -176,11 +176,11 @@ export const BrandBadgesBar: React.FC = () => {
         </div>
 
         {/* 3x5 Grid View */}
-        <div className="grid grid-cols-3 sm:grid-cols-5 gap-1.5 sm:gap-2.5">
+        <div className="grid grid-cols-3 sm:grid-cols-5 gap-1.5 sm:gap-2">
           {brands.map((brand, idx) => (
             <div 
               key={idx} 
-              className="group bg-zinc-950/60 hover:bg-zinc-900/90 border border-zinc-800/80 hover:border-amber-500/70 rounded-lg sm:rounded-xl px-2 py-2 sm:px-3 sm:py-2.5 flex items-center justify-center text-center transition-all duration-200 shadow-sm hover:shadow-md hover:shadow-amber-500/10 backdrop-blur-sm min-h-[42px] sm:min-h-[48px]"
+              className="group bg-zinc-950/60 hover:bg-zinc-900/90 border border-zinc-800/80 hover:border-amber-500/70 rounded-lg px-2 py-1.5 flex items-center justify-center text-center transition-all duration-200 shadow-sm hover:shadow-amber-500/10 backdrop-blur-sm min-h-[36px] sm:min-h-[40px]"
             >
               {brand.node}
             </div>
