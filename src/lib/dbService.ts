@@ -162,12 +162,14 @@ export const DEFAULT_SITE_SETTINGS: SiteSettings = {
   paymentGcashName: '',
   paymentGcashNumber: '',
   paymentGcashQr: '',
+  paymentGcashPortalUrl: '',
   paymentGcashInstructions: '',
 
   paymentPaymayaEnabled: true,
   paymentPaymayaName: '',
   paymentPaymayaNumber: '',
   paymentPaymayaQr: '',
+  paymentPaymayaPortalUrl: '',
   paymentPaymayaInstructions: '',
 
   paymentCodEnabled: true,
@@ -470,7 +472,7 @@ export async function createOrder(orderData: Omit<Order, 'id' | 'createdAt' | 's
         });
       }
 
-      finalCalculatedTotal = calculatedSubtotal + calculatedShipping;
+      finalCalculatedTotal = Math.max(0, calculatedSubtotal + calculatedShipping - (orderData.discountAmount || 0));
 
       // 3. Force safe payment status (customers cannot pass 'verified' or 'paid' on creation)
       const safePaymentStatus = orderData.paymentMethod === 'cod' ? 'unpaid' : 'pending_verification';
@@ -479,6 +481,8 @@ export async function createOrder(orderData: Omit<Order, 'id' | 'createdAt' | 's
         ...orderData,
         items: validatedItems,
         totalAmount: finalCalculatedTotal,
+        discountAmount: orderData.discountAmount || 0,
+        discountCode: orderData.discountCode || undefined,
         paymentReference: cleanRef || undefined,
         paymentStatus: safePaymentStatus,
         status: 'pending' as OrderStatus,

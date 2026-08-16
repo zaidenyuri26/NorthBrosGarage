@@ -17,11 +17,15 @@ import {
   Building2, 
   AlertCircle,
   ExternalLink,
-  ZoomIn
+  ZoomIn,
+  Tag,
+  FileText
 } from 'lucide-react';
-import { CartItem, UserProfile, SiteSettings, PaymentMethodType } from '../types';
+import { CartItem, UserProfile, SiteSettings, PaymentMethodType, Order } from '../types';
 import { createOrder, saveUserProfile, checkPaymentReferenceUnique, DEFAULT_SITE_SETTINGS } from '../lib/dbService';
 import { useToast } from '../context/ToastContext';
+import { InvoiceModal } from './InvoiceModal';
+import { AppLauncherModal } from './AppLauncherModal';
 
 interface CartDrawerProps {
   isOpen: boolean;
@@ -69,8 +73,37 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
   const [saveProfile, setSaveProfile] = useState(true);
   const [codAcknowledged, setCodAcknowledged] = useState(false);
 
+  // Promo Code & Invoice State
+  const [promoCode, setPromoCode] = useState('');
+  const [appliedDiscount, setAppliedDiscount] = useState<{ code: string; amount: number; description: string } | null>(null);
+  const [promoError, setPromoError] = useState('');
+  const [showInvoiceModal, setShowInvoiceModal] = useState(false);
+  const [completedOrder, setCompletedOrder] = useState<Order | null>(null);
+
+  // External App Return Indicator & Mobile Launcher State
+  const [externalAppOpened, setExternalAppOpened] = useState(false);
+  const [userReturnedFromApp, setUserReturnedFromApp] = useState(false);
+  const [appLauncherType, setAppLauncherType] = useState<'gcash' | 'paymaya' | null>(null);
+
   const [qrMode, setQrMode] = useState<'dynamic' | 'static'>('dynamic');
   const [zoomedQr, setZoomedQr] = useState<{ url: string; title: string; subtitle?: string } | null>(null);
+
+  // Monitor window focus to detect when user returns to site after switching to banking app
+  useEffect(() => {
+    const handleFocus = () => {
+      if (externalAppOpened) {
+        setUserReturnedFromApp(true);
+        if (!paymentReference.trim()) {
+          toast.info(
+            'Returned to Checkout',
+            'Please paste or enter your GCash / Maya Transaction Reference Code below to complete your order.'
+          );
+        }
+      }
+    };
+    window.addEventListener('focus', handleFocus);
+    return () => window.removeEventListener('focus', handleFocus);
+  }, [externalAppOpened, paymentReference]);
 
   /**
    * Real Payment Reference Validator
@@ -215,11 +248,13 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
   const gcashName = siteSettings?.paymentGcashName || '';
   const gcashNumber = siteSettings?.paymentGcashNumber || '';
   const gcashQr = siteSettings?.paymentGcashQr || '';
+  const gcashPortalUrl = siteSettings?.paymentGcashPortalUrl || '';
   const gcashInstructions = siteSettings?.paymentGcashInstructions || 'Open GCash, scan QR code or send to the account number above, then enter the Reference Number.';
 
   const paymayaName = siteSettings?.paymentPaymayaName || '';
   const paymayaNumber = siteSettings?.paymentPaymayaNumber || '';
   const paymayaQr = siteSettings?.paymentPaymayaQr || '';
+  const paymayaPortalUrl = siteSettings?.paymentPaymayaPortalUrl || '';
   const paymayaInstructions = siteSettings?.paymentPaymayaInstructions || 'Open Maya, scan QR code or send to the account number above, then enter the Reference Number.';
 
   const bankName = siteSettings?.paymentBankName || '';
@@ -243,13 +278,89 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
 
   const subtotal = cart.reduce((sum, item) => sum + item.product.price * item.quantity, 0);
   const totalShipping = cart.reduce((sum, item) => sum + (item.product.shippingFee || 0) * item.quantity, 0);
-  const totalAmount = subtotal + totalShipping;
+  const discountAmount = appliedDiscount ? appliedDiscount.amount : 0;
+  const totalAmount = Math.max(0, subtotal + totalShipping - discountAmount);
+
+  const handleApplyPromoCode = () => {
+    setPromoError('');
+    const clean = promoCode.trim().toUpperCase();
+    if (!clean) {
+      setPromoError('Please enter a coupon or promo code.');
+      return;
+    }
+
+    if (clean === 'JDM10') {
+      const disc = Math.round(subtotal * 0.10);
+      setAppliedDiscount({ code: 'JDM10', amount: disc, description: '10% JDM Tuner Discount' });
+      toast.success('Promo Code Applied!', '10% off entire order applied.');
+    } else if (clean === 'WELCOME500') {
+      if (subtotal < 2000) {
+        setPromoError('WELCOME500 requires a minimum cart subtotal of ₱2,000.');
+        return;
+      }
+      setAppliedDiscount({ code: 'WELCOME500', amount: 500, description: '₱500 New Tuner Discount' });
+      toast.success('Promo Code Applied!', '₱500 welcome credit applied.');
+    } else if (clean === 'NORTHBROS15') {
+      const disc = Math.round(subtotal * 0.15);
+      setAppliedDiscount({ code: 'NORTHBROS15', amount: disc, description: '15% Garage Club Discount' });
+      toast.success('Promo Code Applied!', '15% NorthBros Club discount applied.');
+    } else {
+      setPromoError('Invalid coupon code. Try JDM10 or WELCOME500.');
+    }
+  };
 
   const handleCopy = (text: string, fieldName: string) => {
     navigator.clipboard.writeText(text);
     setCopiedField(fieldName);
     toast.success('Copied to Clipboard', `${fieldName} copied: ${text}`);
     setTimeout(() => setCopiedField(null), 2000);
+  };
+
+  const handleOpenGcashApp = () => {
+    setExternalAppOpened(true);
+    setUserReturnedFromApp(false);
+    const numberToCopy = gcashNumber || '09171234567';
+    navigator.clipboard.writeText(`${numberToCopy}`);
+    toast.success(
+      'GCash Details Copied!',
+      `Copied GCash No. (${numberToCopy}) & Amount ₱${totalAmount.toLocaleString()} to clipboard.`
+    );
+
+    setAppLauncherType('gcash');
+
+    // Attempt direct top window navigation if supported
+    try {
+      if (window.top) {
+        window.top.location.href = 'gcash://';
+      } else {
+        window.location.href = 'gcash://';
+      }
+    } catch {
+      // Fallback handled by AppLauncherModal
+    }
+  };
+
+  const handleOpenMayaApp = () => {
+    setExternalAppOpened(true);
+    setUserReturnedFromApp(false);
+    const numberToCopy = paymayaNumber || '09171234567';
+    navigator.clipboard.writeText(`${numberToCopy}`);
+    toast.success(
+      'Maya Details Copied!',
+      `Copied Maya No. (${numberToCopy}) & Amount ₱${totalAmount.toLocaleString()} to clipboard.`
+    );
+
+    setAppLauncherType('paymaya');
+
+    try {
+      if (window.top) {
+        window.top.location.href = 'paymaya://';
+      } else {
+        window.location.href = 'paymaya://';
+      }
+    } catch {
+      // Fallback handled by AppLauncherModal
+    }
   };
 
   const handleReceiptUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -331,6 +442,8 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
         phone,
         items: orderItems,
         totalAmount,
+        discountAmount,
+        discountCode: appliedDiscount?.code,
         shippingAddress: { street, city, state, zipCode },
         paymentMethod,
         paymentStatus: paymentMethod === 'cod' ? 'unpaid' : 'pending_verification',
@@ -338,6 +451,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
         paymentReceiptUrl: paymentReceiptUrl || undefined,
       });
 
+      setCompletedOrder(newOrder);
       setCreatedOrderId(newOrder.id);
       setCreatedOrderRef(paymentReference.trim() || null);
       toast.success(
@@ -622,141 +736,123 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                   {/* GCash Payment Box */}
                   {paymentMethod === 'gcash' && (
                     <div className="bg-zinc-950 border border-blue-500/40 rounded-2xl p-4 space-y-4 animate-in fade-in duration-200">
-                      <div className="flex items-center justify-between border-b border-zinc-800 pb-2">
-                        <div className="flex items-center gap-2">
-                          <div className="w-6 h-6 rounded-full bg-blue-600 flex items-center justify-center font-black text-[10px] text-white">
-                            G
+                      
+                      {/* Official GCash Portal Button (if configured) */}
+                      {gcashPortalUrl ? (
+                        <div className="space-y-2">
+                          <button
+                            type="button"
+                            onClick={() => window.open(gcashPortalUrl, '_blank')}
+                            className="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-3.5 px-4 rounded-xl text-xs uppercase font-mono flex items-center justify-center gap-2 shadow-lg shadow-blue-500/25 transition-all cursor-pointer ring-2 ring-blue-400"
+                          >
+                            <ExternalLink className="w-4 h-4 text-white" />
+                            <span>Pay via Official GCash Online Checkout (₱{totalAmount.toLocaleString()})</span>
+                          </button>
+                          <p className="text-[10px] font-mono text-zinc-400 text-center">
+                            Opens the official merchant checkout portal in a secure window.
+                          </p>
+                          <div className="relative flex py-1 items-center">
+                            <div className="flex-grow border-t border-zinc-800"></div>
+                            <span className="flex-shrink mx-3 text-[10px] font-mono text-zinc-500 uppercase">Or Direct Mobile / QR Transfer</span>
+                            <div className="flex-grow border-t border-zinc-800"></div>
                           </div>
-                          <span className="font-mono font-bold text-blue-400 text-xs uppercase">GCash Transfer Details</span>
                         </div>
-                        <span className="text-[10px] font-mono bg-blue-500/20 text-blue-300 px-2 py-0.5 rounded-full">QR Ph Verified</span>
-                      </div>
+                      ) : (
+                        <div className="flex items-center justify-between bg-blue-950/40 border border-blue-800/40 p-3 rounded-xl">
+                          <div className="flex items-center gap-2">
+                            <Smartphone className="w-4 h-4 text-blue-400" />
+                            <span className="text-xs font-mono font-bold text-blue-300">Direct GCash Transfer / QR Ph</span>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={handleOpenGcashApp}
+                            className="text-[11px] font-mono font-bold text-white bg-blue-600 hover:bg-blue-500 px-2.5 py-1 rounded-lg transition-colors cursor-pointer flex items-center gap-1"
+                          >
+                            <Smartphone className="w-3 h-3" /> Launch App
+                          </button>
+                        </div>
+                      )}
 
-                      {/* QR Code & Transfer Details */}
-                      <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 bg-zinc-900/80 p-3.5 rounded-xl border border-zinc-800">
+                      {/* QR Code & Account Info */}
+                      <div className="flex flex-col sm:flex-row items-center gap-4 bg-zinc-900/60 p-3.5 rounded-xl border border-zinc-800">
                         {(() => {
                           const dynamicQr = gcashNumber ? createDynamicQrPhUrl('gcash', gcashNumber, gcashName, totalAmount) : '';
-                          const activeQr = (qrMode === 'dynamic' && dynamicQr) ? dynamicQr : (gcashQr || dynamicQr);
-                          const isDynamicActive = qrMode === 'dynamic' && !!dynamicQr;
+                          const activeQr = dynamicQr || gcashQr;
 
-                          return (
-                            <div className="flex flex-col items-center shrink-0 w-full sm:w-auto">
-                              {gcashNumber && gcashQr && (
-                                <div className="flex items-center gap-1 bg-zinc-950 p-0.5 rounded-lg border border-zinc-800 text-[9px] font-mono mb-2 w-full justify-center">
-                                  <button
-                                    type="button"
-                                    onClick={() => setQrMode('dynamic')}
-                                    className={`px-2 py-0.5 rounded transition-all ${isDynamicActive ? 'bg-blue-600 text-white font-bold' : 'text-zinc-400 hover:text-white'}`}
-                                  >
-                                    ⚡ Auto-Amount
-                                  </button>
-                                  <button
-                                    type="button"
-                                    onClick={() => setQrMode('static')}
-                                    className={`px-2 py-0.5 rounded transition-all ${!isDynamicActive ? 'bg-zinc-800 text-white font-bold' : 'text-zinc-400 hover:text-white'}`}
-                                  >
-                                    Static QR
-                                  </button>
-                                </div>
-                              )}
-
-                              {activeQr ? (
-                                <button
-                                  type="button"
-                                  onClick={() => setZoomedQr({ url: activeQr, title: 'GCash QR Ph Code', subtitle: isDynamicActive ? `Auto-Fills ₱${totalAmount.toLocaleString()}` : 'Scan via GCash' })}
-                                  className="relative group shrink-0 text-center focus:outline-none cursor-pointer block"
-                                >
-                                  <div className="relative overflow-hidden rounded-2xl bg-white p-2 shadow-xl border-2 border-blue-500/30 group-hover:border-blue-500 transition-all">
-                                    <img
-                                      src={activeQr}
-                                      alt="GCash QR Ph Code"
-                                      className="w-48 h-48 sm:w-56 sm:h-56 object-contain"
-                                    />
-                                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity rounded-xl flex items-center justify-center text-white font-mono text-xs font-bold gap-1.5 backdrop-blur-[2px]">
-                                      <ZoomIn className="w-5 h-5 text-blue-400" />
-                                      <span>Tap to Enlarge</span>
-                                    </div>
-                                  </div>
-                                  <div className="text-xs text-center font-mono font-bold text-blue-400 mt-2 flex items-center justify-center gap-1">
-                                    <span>{isDynamicActive ? `⚡ Auto-Fills ₱${totalAmount.toLocaleString()}` : 'Scan via GCash'}</span>
-                                    <ZoomIn className="w-3 h-3 text-blue-400/70" />
-                                  </div>
-                                </button>
-                              ) : (
-                                <div className="w-48 h-48 sm:w-56 sm:h-56 bg-zinc-950 border border-zinc-800 rounded-2xl p-4 flex flex-col items-center justify-center text-center text-zinc-500 font-mono text-xs shrink-0">
-                                  <QrCode className="w-8 h-8 text-zinc-700 mb-2" />
-                                  <span className="font-bold text-zinc-400">Direct Transfer</span>
-                                  <span className="text-[10px] text-zinc-600 mt-1">No QR Code Uploaded</span>
-                                </div>
-                              )}
+                          return activeQr ? (
+                            <div className="bg-white p-2 rounded-xl shrink-0 shadow relative group">
+                              <img src={activeQr} alt="GCash QR Code" className="w-36 h-36 object-contain" />
+                              <button
+                                type="button"
+                                onClick={() => setZoomedQr({ url: activeQr, title: 'GCash / QR Ph Payment', subtitle: `Merchant: ${gcashName || 'NorthBros Garage'}` })}
+                                className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center text-white rounded-xl transition-opacity cursor-pointer"
+                              >
+                                <ZoomIn className="w-6 h-6" />
+                              </button>
                             </div>
-                          );
+                          ) : null;
                         })()}
 
                         <div className="flex-1 min-w-0 space-y-2 text-xs w-full">
                           <div>
+                            <span className="text-[10px] font-mono text-zinc-500 uppercase block">Recipient GCash Number</span>
+                            <div className="flex items-center justify-between bg-zinc-950 px-3 py-2 rounded-lg border border-zinc-800">
+                              <span className="font-mono font-bold text-blue-400 text-sm">{gcashNumber || '09171234567'}</span>
+                              <button
+                                type="button"
+                                onClick={() => handleCopy(gcashNumber || '09171234567', 'GCash Number')}
+                                className="text-zinc-400 hover:text-white p-1"
+                                title="Copy Number"
+                              >
+                                {copiedField === 'GCash Number' ? <Check className="w-4 h-4 text-emerald-400" /> : <Copy className="w-4 h-4" />}
+                              </button>
+                            </div>
+                          </div>
+
+                          <div>
                             <span className="text-[10px] font-mono text-zinc-500 uppercase block">Account Name</span>
-                            <div className="flex items-center justify-between bg-zinc-950 px-2.5 py-1.5 rounded-lg border border-zinc-800">
-                              <span className="font-bold text-white truncate">{gcashName}</span>
+                            <div className="flex items-center justify-between bg-zinc-950 px-3 py-2 rounded-lg border border-zinc-800">
+                              <span className="font-bold text-zinc-200 text-xs truncate">{gcashName || 'NorthBros Garage'}</span>
                               <button
                                 type="button"
-                                onClick={() => handleCopy(gcashName, 'Account Name')}
-                                className="text-zinc-400 hover:text-blue-400 ml-2"
-                                title="Copy Account Name"
+                                onClick={() => handleCopy(gcashName || 'NorthBros Garage', 'Account Name')}
+                                className="text-zinc-400 hover:text-white p-1"
+                                title="Copy Name"
                               >
-                                {copiedField === 'Account Name' ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
+                                {copiedField === 'Account Name' ? <Check className="w-4 h-4 text-emerald-400" /> : <Copy className="w-4 h-4" />}
                               </button>
                             </div>
                           </div>
 
                           <div>
-                            <span className="text-[10px] font-mono text-zinc-500 uppercase block">GCash Number</span>
-                            <div className="flex items-center justify-between bg-zinc-950 px-2.5 py-1.5 rounded-lg border border-zinc-800">
-                              <span className="font-mono font-bold text-amber-400">{gcashNumber}</span>
+                            <span className="text-[10px] font-mono text-zinc-500 uppercase block">Payable Amount</span>
+                            <div className="flex items-center justify-between bg-zinc-950 px-3 py-2 rounded-lg border border-zinc-800">
+                              <span className="font-mono font-bold text-emerald-400 text-sm">₱{totalAmount.toLocaleString()}</span>
                               <button
                                 type="button"
-                                onClick={() => handleCopy(gcashNumber, 'GCash Number')}
-                                className="text-zinc-400 hover:text-amber-400 ml-2"
-                                title="Copy GCash Number"
-                              >
-                                {copiedField === 'GCash Number' ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
-                              </button>
-                            </div>
-                          </div>
-
-                          <div>
-                            <span className="text-[10px] font-mono text-zinc-500 uppercase block">Exact Amount to Send</span>
-                            <div className="flex items-center justify-between bg-zinc-950 px-2.5 py-1.5 rounded-lg border border-zinc-800">
-                              <span className="font-mono font-bold text-emerald-400">₱{totalAmount.toLocaleString()}</span>
-                              <button
-                                type="button"
-                                onClick={() => handleCopy(totalAmount.toString(), 'Total Amount')}
-                                className="text-zinc-400 hover:text-emerald-400 ml-2"
+                                onClick={() => handleCopy(totalAmount.toString(), 'Payable Amount')}
+                                className="text-zinc-400 hover:text-white p-1"
                                 title="Copy Amount"
                               >
-                                {copiedField === 'Total Amount' ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
+                                {copiedField === 'Payable Amount' ? <Check className="w-4 h-4 text-emerald-400" /> : <Copy className="w-4 h-4" />}
                               </button>
                             </div>
                           </div>
                         </div>
                       </div>
 
-                      <p className="text-[11px] text-zinc-400 italic">
-                        {gcashInstructions}
-                      </p>
-
-                      {/* Required Reference Number Input with Real-time Anti-Fraud Verification */}
-                      <div className="space-y-2 pt-1">
+                      {/* Reference Input */}
+                      <div className="space-y-1.5">
                         <div className="flex items-center justify-between">
-                          <label className="block text-xs font-mono font-bold text-blue-300 uppercase">
-                            GCash Reference / Transaction No. *
+                          <label className="block text-xs font-mono font-bold text-zinc-300 uppercase">
+                            Transaction Reference No. *
                           </label>
                           <button
                             type="button"
                             onClick={handlePasteClipboard}
-                            className="text-[10px] font-mono text-blue-400 hover:text-blue-300 bg-blue-950/60 hover:bg-blue-900/80 px-2 py-0.5 rounded border border-blue-800/60 flex items-center gap-1 transition-colors"
+                            className="text-[10px] font-mono text-blue-400 hover:text-blue-300 bg-blue-950/60 px-2 py-0.5 rounded border border-blue-800/60 flex items-center gap-1"
                           >
-                            <Copy className="w-3 h-3" /> Paste from App
+                            <Copy className="w-3 h-3" /> Paste
                           </button>
                         </div>
 
@@ -764,15 +860,15 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                           <input
                             type="text"
                             required
-                            placeholder="e.g. 1002 9384 7561"
+                            placeholder="Enter 10-13 digit Reference Number"
                             value={paymentReference}
                             onChange={(e) => setPaymentReference(e.target.value)}
-                            className={`w-full bg-zinc-900 border rounded-xl p-2.5 text-white font-mono text-sm tracking-wider focus:outline-none transition-colors ${
+                            className={`w-full bg-zinc-900 border rounded-xl p-2.5 text-white font-mono text-sm tracking-wider focus:outline-none ${
                               !paymentReference.trim()
                                 ? 'border-zinc-700 focus:border-blue-400'
                                 : currentPaymentValidation.isValid
-                                ? 'border-emerald-500 bg-emerald-950/10 focus:border-emerald-400'
-                                : 'border-red-500 bg-red-950/10 focus:border-red-400'
+                                ? 'border-emerald-500 bg-emerald-950/10'
+                                : 'border-red-500 bg-red-950/10'
                             }`}
                           />
                           {paymentReference.trim() && (
@@ -786,60 +882,41 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                           )}
                         </div>
 
-                        {/* Real-time Payment Validation Badge */}
-                        <div className={`p-2 rounded-lg border text-[11px] font-mono flex items-start gap-1.5 ${
-                          !paymentReference.trim()
-                            ? 'bg-zinc-900/90 border-zinc-800 text-zinc-400'
-                            : currentPaymentValidation.isValid
-                            ? 'bg-emerald-950/50 border-emerald-500/40 text-emerald-300'
-                            : 'bg-red-950/50 border-red-500/40 text-red-300'
-                        }`}>
-                          <ShieldCheck className={`w-3.5 h-3.5 shrink-0 mt-0.5 ${
-                            currentPaymentValidation.isValid ? 'text-emerald-400' : 'text-zinc-500'
-                          }`} />
-                          <div className="space-y-0.5">
-                            <p className="font-semibold">{currentPaymentValidation.message}</p>
-                            {!paymentReference.trim() && (
-                              <p className="text-[10px] text-zinc-500">
-                                Open your GCash app &gt; Activity &gt; Copy 10–13 digit Reference Number.
-                              </p>
-                            )}
-                          </div>
-                        </div>
+                        {paymentReference.trim() && !currentPaymentValidation.isValid && (
+                          <p className="text-[11px] font-mono text-red-400">{currentPaymentValidation.message}</p>
+                        )}
                       </div>
 
-                      {/* Optional Receipt Screenshot */}
-                      <div className="space-y-1.5">
-                        <label className="block text-[11px] font-mono text-zinc-400 uppercase">
-                          Optional Proof: Attach GCash Receipt Screenshot
+                      {/* Proof of Payment Screenshot Upload */}
+                      <div className="space-y-1.5 pt-1">
+                        <label className="block text-[11px] font-mono font-bold text-zinc-400 uppercase">
+                          Payment Screenshot / Receipt (Optional)
                         </label>
                         <div className="flex items-center gap-2">
-                          <label className="cursor-pointer flex items-center gap-2 bg-zinc-900 hover:bg-zinc-800 text-zinc-300 px-3 py-2 rounded-xl border border-zinc-800 text-xs font-mono transition-colors">
-                            <Upload className="w-3.5 h-3.5 text-blue-400" />
-                            <span>{receiptFileName ? 'Change Screenshot' : 'Upload Receipt Screenshot'}</span>
+                          <label className="flex-1 flex items-center justify-center gap-2 px-3 py-2 bg-zinc-900 border border-dashed border-zinc-700 hover:border-blue-500 rounded-xl cursor-pointer text-xs font-mono text-zinc-300 transition-colors">
+                            <ImageIcon className="w-4 h-4 text-blue-400" />
+                            <span className="truncate">{receiptFileName || 'Attach Screenshot / Receipt Image'}</span>
                             <input
                               type="file"
                               accept="image/*"
-                              className="hidden"
                               onChange={handleReceiptUpload}
+                              className="hidden"
                             />
                           </label>
-                          {receiptFileName && (
+                          {paymentReceiptUrl && (
                             <button
                               type="button"
-                              onClick={() => { setPaymentReceiptUrl(''); setReceiptFileName(''); }}
-                              className="text-xs text-red-400 hover:text-red-300 font-mono"
+                              onClick={() => {
+                                setPaymentReceiptUrl('');
+                                setReceiptFileName('');
+                              }}
+                              className="p-2 bg-red-950/40 text-red-400 border border-red-800/60 rounded-xl hover:bg-red-900/60 transition-colors"
+                              title="Remove Attachment"
                             >
-                              Remove
+                              <X className="w-4 h-4" />
                             </button>
                           )}
                         </div>
-                        {paymentReceiptUrl && (
-                          <div className="mt-2 relative inline-block">
-                            <img src={paymentReceiptUrl} alt="Receipt preview" className="w-20 h-20 object-cover rounded-lg border border-zinc-700" />
-                            <span className="text-[10px] text-emerald-400 font-mono block mt-1">✓ Receipt Attached</span>
-                          </div>
-                        )}
                       </div>
                     </div>
                   )}
@@ -847,141 +924,123 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                   {/* Maya Payment Box */}
                   {paymentMethod === 'paymaya' && (
                     <div className="bg-zinc-950 border border-emerald-500/40 rounded-2xl p-4 space-y-4 animate-in fade-in duration-200">
-                      <div className="flex items-center justify-between border-b border-zinc-800 pb-2">
-                        <div className="flex items-center gap-2">
-                          <div className="w-6 h-6 rounded-full bg-emerald-600 flex items-center justify-center font-black text-[10px] text-white">
-                            M
+                      
+                      {/* Official Maya Portal Button (if configured) */}
+                      {paymayaPortalUrl ? (
+                        <div className="space-y-2">
+                          <button
+                            type="button"
+                            onClick={() => window.open(paymayaPortalUrl, '_blank')}
+                            className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-3.5 px-4 rounded-xl text-xs uppercase font-mono flex items-center justify-center gap-2 shadow-lg shadow-emerald-500/25 transition-all cursor-pointer ring-2 ring-emerald-400"
+                          >
+                            <ExternalLink className="w-4 h-4 text-white" />
+                            <span>Pay via Official Maya Online Checkout (₱{totalAmount.toLocaleString()})</span>
+                          </button>
+                          <p className="text-[10px] font-mono text-zinc-400 text-center">
+                            Opens the official merchant checkout portal in a secure window.
+                          </p>
+                          <div className="relative flex py-1 items-center">
+                            <div className="flex-grow border-t border-zinc-800"></div>
+                            <span className="flex-shrink mx-3 text-[10px] font-mono text-zinc-500 uppercase">Or Direct Mobile / QR Transfer</span>
+                            <div className="flex-grow border-t border-zinc-800"></div>
                           </div>
-                          <span className="font-mono font-bold text-emerald-400 text-xs uppercase">Maya / PayMaya Details</span>
                         </div>
-                        <span className="text-[10px] font-mono bg-emerald-500/20 text-emerald-300 px-2 py-0.5 rounded-full">QR Ph Verified</span>
-                      </div>
+                      ) : (
+                        <div className="flex items-center justify-between bg-emerald-950/40 border border-emerald-800/40 p-3 rounded-xl">
+                          <div className="flex items-center gap-2">
+                            <Smartphone className="w-4 h-4 text-emerald-400" />
+                            <span className="text-xs font-mono font-bold text-emerald-300">Direct Maya Transfer / QR Ph</span>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={handleOpenMayaApp}
+                            className="text-[11px] font-mono font-bold text-white bg-emerald-600 hover:bg-emerald-500 px-2.5 py-1 rounded-lg transition-colors cursor-pointer flex items-center gap-1"
+                          >
+                            <Smartphone className="w-3 h-3" /> Launch App
+                          </button>
+                        </div>
+                      )}
 
-                      {/* QR Code & Transfer Details */}
-                      <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 bg-zinc-900/80 p-3.5 rounded-xl border border-zinc-800">
+                      {/* QR Code & Account Info */}
+                      <div className="flex flex-col sm:flex-row items-center gap-4 bg-zinc-900/60 p-3.5 rounded-xl border border-zinc-800">
                         {(() => {
                           const dynamicQr = paymayaNumber ? createDynamicQrPhUrl('paymaya', paymayaNumber, paymayaName, totalAmount) : '';
-                          const activeQr = (qrMode === 'dynamic' && dynamicQr) ? dynamicQr : (paymayaQr || dynamicQr);
-                          const isDynamicActive = qrMode === 'dynamic' && !!dynamicQr;
+                          const activeQr = dynamicQr || paymayaQr;
 
-                          return (
-                            <div className="flex flex-col items-center shrink-0 w-full sm:w-auto">
-                              {paymayaNumber && paymayaQr && (
-                                <div className="flex items-center gap-1 bg-zinc-950 p-0.5 rounded-lg border border-zinc-800 text-[9px] font-mono mb-2 w-full justify-center">
-                                  <button
-                                    type="button"
-                                    onClick={() => setQrMode('dynamic')}
-                                    className={`px-2 py-0.5 rounded transition-all ${isDynamicActive ? 'bg-emerald-600 text-white font-bold' : 'text-zinc-400 hover:text-white'}`}
-                                  >
-                                    ⚡ Auto-Amount
-                                  </button>
-                                  <button
-                                    type="button"
-                                    onClick={() => setQrMode('static')}
-                                    className={`px-2 py-0.5 rounded transition-all ${!isDynamicActive ? 'bg-zinc-800 text-white font-bold' : 'text-zinc-400 hover:text-white'}`}
-                                  >
-                                    Static QR
-                                  </button>
-                                </div>
-                              )}
-
-                              {activeQr ? (
-                                <button
-                                  type="button"
-                                  onClick={() => setZoomedQr({ url: activeQr, title: 'Maya QR Ph Code', subtitle: isDynamicActive ? `Auto-Fills ₱${totalAmount.toLocaleString()}` : 'Scan via Maya' })}
-                                  className="relative group shrink-0 text-center focus:outline-none cursor-pointer block"
-                                >
-                                  <div className="relative overflow-hidden rounded-2xl bg-white p-2 shadow-xl border-2 border-emerald-500/30 group-hover:border-emerald-500 transition-all">
-                                    <img
-                                      src={activeQr}
-                                      alt="Maya QR Ph Code"
-                                      className="w-48 h-48 sm:w-56 sm:h-56 object-contain"
-                                    />
-                                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity rounded-xl flex items-center justify-center text-white font-mono text-xs font-bold gap-1.5 backdrop-blur-[2px]">
-                                      <ZoomIn className="w-5 h-5 text-emerald-400" />
-                                      <span>Tap to Enlarge</span>
-                                    </div>
-                                  </div>
-                                  <div className="text-xs text-center font-mono font-bold text-emerald-400 mt-2 flex items-center justify-center gap-1">
-                                    <span>{isDynamicActive ? `⚡ Auto-Fills ₱${totalAmount.toLocaleString()}` : 'Scan via Maya'}</span>
-                                    <ZoomIn className="w-3 h-3 text-emerald-400/70" />
-                                  </div>
-                                </button>
-                              ) : (
-                                <div className="w-48 h-48 sm:w-56 sm:h-56 bg-zinc-950 border border-zinc-800 rounded-2xl p-4 flex flex-col items-center justify-center text-center text-zinc-500 font-mono text-xs shrink-0">
-                                  <QrCode className="w-8 h-8 text-zinc-700 mb-2" />
-                                  <span className="font-bold text-zinc-400">Direct Transfer</span>
-                                  <span className="text-[10px] text-zinc-600 mt-1">No QR Code Uploaded</span>
-                                </div>
-                              )}
+                          return activeQr ? (
+                            <div className="bg-white p-2 rounded-xl shrink-0 shadow relative group">
+                              <img src={activeQr} alt="Maya QR Code" className="w-36 h-36 object-contain" />
+                              <button
+                                type="button"
+                                onClick={() => setZoomedQr({ url: activeQr, title: 'Maya / QR Ph Payment', subtitle: `Merchant: ${paymayaName || 'NorthBros Garage'}` })}
+                                className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center text-white rounded-xl transition-opacity cursor-pointer"
+                              >
+                                <ZoomIn className="w-6 h-6" />
+                              </button>
                             </div>
-                          );
+                          ) : null;
                         })()}
 
                         <div className="flex-1 min-w-0 space-y-2 text-xs w-full">
                           <div>
+                            <span className="text-[10px] font-mono text-zinc-500 uppercase block">Recipient Maya Mobile Number</span>
+                            <div className="flex items-center justify-between bg-zinc-950 px-3 py-2 rounded-lg border border-zinc-800">
+                              <span className="font-mono font-bold text-emerald-400 text-sm">{paymayaNumber || '09171234567'}</span>
+                              <button
+                                type="button"
+                                onClick={() => handleCopy(paymayaNumber || '09171234567', 'Maya Number')}
+                                className="text-zinc-400 hover:text-white p-1"
+                                title="Copy Number"
+                              >
+                                {copiedField === 'Maya Number' ? <Check className="w-4 h-4 text-emerald-400" /> : <Copy className="w-4 h-4" />}
+                              </button>
+                            </div>
+                          </div>
+
+                          <div>
                             <span className="text-[10px] font-mono text-zinc-500 uppercase block">Account Name</span>
-                            <div className="flex items-center justify-between bg-zinc-950 px-2.5 py-1.5 rounded-lg border border-zinc-800">
-                              <span className="font-bold text-white truncate">{paymayaName}</span>
+                            <div className="flex items-center justify-between bg-zinc-950 px-3 py-2 rounded-lg border border-zinc-800">
+                              <span className="font-bold text-zinc-200 text-xs truncate">{paymayaName || 'NorthBros Garage'}</span>
                               <button
                                 type="button"
-                                onClick={() => handleCopy(paymayaName, 'Maya Account Name')}
-                                className="text-zinc-400 hover:text-emerald-400 ml-2"
-                                title="Copy Account Name"
+                                onClick={() => handleCopy(paymayaName || 'NorthBros Garage', 'Maya Account Name')}
+                                className="text-zinc-400 hover:text-white p-1"
+                                title="Copy Name"
                               >
-                                {copiedField === 'Maya Account Name' ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
+                                {copiedField === 'Maya Account Name' ? <Check className="w-4 h-4 text-emerald-400" /> : <Copy className="w-4 h-4" />}
                               </button>
                             </div>
                           </div>
 
                           <div>
-                            <span className="text-[10px] font-mono text-zinc-500 uppercase block">Maya Mobile Number</span>
-                            <div className="flex items-center justify-between bg-zinc-950 px-2.5 py-1.5 rounded-lg border border-zinc-800">
-                              <span className="font-mono font-bold text-emerald-400">{paymayaNumber}</span>
+                            <span className="text-[10px] font-mono text-zinc-500 uppercase block">Payable Amount</span>
+                            <div className="flex items-center justify-between bg-zinc-950 px-3 py-2 rounded-lg border border-zinc-800">
+                              <span className="font-mono font-bold text-emerald-400 text-sm">₱{totalAmount.toLocaleString()}</span>
                               <button
                                 type="button"
-                                onClick={() => handleCopy(paymayaNumber, 'Maya Number')}
-                                className="text-zinc-400 hover:text-emerald-400 ml-2"
-                                title="Copy Maya Number"
-                              >
-                                {copiedField === 'Maya Number' ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
-                              </button>
-                            </div>
-                          </div>
-
-                          <div>
-                            <span className="text-[10px] font-mono text-zinc-500 uppercase block">Exact Amount to Send</span>
-                            <div className="flex items-center justify-between bg-zinc-950 px-2.5 py-1.5 rounded-lg border border-zinc-800">
-                              <span className="font-mono font-bold text-emerald-400">₱{totalAmount.toLocaleString()}</span>
-                              <button
-                                type="button"
-                                onClick={() => handleCopy(totalAmount.toString(), 'Total Amount')}
-                                className="text-zinc-400 hover:text-emerald-400 ml-2"
+                                onClick={() => handleCopy(totalAmount.toString(), 'Payable Amount')}
+                                className="text-zinc-400 hover:text-white p-1"
                                 title="Copy Amount"
                               >
-                                {copiedField === 'Total Amount' ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
+                                {copiedField === 'Payable Amount' ? <Check className="w-4 h-4 text-emerald-400" /> : <Copy className="w-4 h-4" />}
                               </button>
                             </div>
                           </div>
                         </div>
                       </div>
 
-                      <p className="text-[11px] text-zinc-400 italic">
-                        {paymayaInstructions}
-                      </p>
-
-                      {/* Required Reference Number Input with Real-time Anti-Fraud Verification */}
-                      <div className="space-y-2 pt-1">
+                      {/* Reference Input */}
+                      <div className="space-y-1.5">
                         <div className="flex items-center justify-between">
-                          <label className="block text-xs font-mono font-bold text-emerald-300 uppercase">
-                            Maya Reference / Transaction ID *
+                          <label className="block text-xs font-mono font-bold text-zinc-300 uppercase">
+                            Transaction Reference No. *
                           </label>
                           <button
                             type="button"
                             onClick={handlePasteClipboard}
-                            className="text-[10px] font-mono text-emerald-400 hover:text-emerald-300 bg-emerald-950/60 hover:bg-emerald-900/80 px-2 py-0.5 rounded border border-emerald-800/60 flex items-center gap-1 transition-colors"
+                            className="text-[10px] font-mono text-emerald-400 hover:text-emerald-300 bg-emerald-950/60 px-2 py-0.5 rounded border border-emerald-800/60 flex items-center gap-1"
                           >
-                            <Copy className="w-3 h-3" /> Paste from App
+                            <Copy className="w-3 h-3" /> Paste
                           </button>
                         </div>
 
@@ -989,15 +1048,15 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                           <input
                             type="text"
                             required
-                            placeholder="e.g. MP-84729104 or 8392019482"
+                            placeholder="Enter Maya Reference Number"
                             value={paymentReference}
                             onChange={(e) => setPaymentReference(e.target.value)}
-                            className={`w-full bg-zinc-900 border rounded-xl p-2.5 text-white font-mono text-sm tracking-wider focus:outline-none transition-colors ${
+                            className={`w-full bg-zinc-900 border rounded-xl p-2.5 text-white font-mono text-sm tracking-wider focus:outline-none ${
                               !paymentReference.trim()
                                 ? 'border-zinc-700 focus:border-emerald-400'
                                 : currentPaymentValidation.isValid
-                                ? 'border-emerald-500 bg-emerald-950/10 focus:border-emerald-400'
-                                : 'border-red-500 bg-red-950/10 focus:border-red-400'
+                                ? 'border-emerald-500 bg-emerald-950/10'
+                                : 'border-red-500 bg-red-950/10'
                             }`}
                           />
                           {paymentReference.trim() && (
@@ -1011,60 +1070,41 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                           )}
                         </div>
 
-                        {/* Real-time Payment Validation Badge */}
-                        <div className={`p-2 rounded-lg border text-[11px] font-mono flex items-start gap-1.5 ${
-                          !paymentReference.trim()
-                            ? 'bg-zinc-900/90 border-zinc-800 text-zinc-400'
-                            : currentPaymentValidation.isValid
-                            ? 'bg-emerald-950/50 border-emerald-500/40 text-emerald-300'
-                            : 'bg-red-950/50 border-red-500/40 text-red-300'
-                        }`}>
-                          <ShieldCheck className={`w-3.5 h-3.5 shrink-0 mt-0.5 ${
-                            currentPaymentValidation.isValid ? 'text-emerald-400' : 'text-zinc-500'
-                          }`} />
-                          <div className="space-y-0.5">
-                            <p className="font-semibold">{currentPaymentValidation.message}</p>
-                            {!paymentReference.trim() && (
-                              <p className="text-[10px] text-zinc-500">
-                                Generated right after sending money on your Maya app.
-                              </p>
-                            )}
-                          </div>
-                        </div>
+                        {paymentReference.trim() && !currentPaymentValidation.isValid && (
+                          <p className="text-[11px] font-mono text-red-400">{currentPaymentValidation.message}</p>
+                        )}
                       </div>
 
-                      {/* Optional Receipt Screenshot */}
-                      <div className="space-y-1.5">
-                        <label className="block text-[11px] font-mono text-zinc-400 uppercase">
-                          Optional Proof: Attach Maya Receipt Screenshot
+                      {/* Proof of Payment Screenshot Upload */}
+                      <div className="space-y-1.5 pt-1">
+                        <label className="block text-[11px] font-mono font-bold text-zinc-400 uppercase">
+                          Payment Screenshot / Receipt (Optional)
                         </label>
                         <div className="flex items-center gap-2">
-                          <label className="cursor-pointer flex items-center gap-2 bg-zinc-900 hover:bg-zinc-800 text-zinc-300 px-3 py-2 rounded-xl border border-zinc-800 text-xs font-mono transition-colors">
-                            <Upload className="w-3.5 h-3.5 text-emerald-400" />
-                            <span>{receiptFileName ? 'Change Screenshot' : 'Upload Receipt Screenshot'}</span>
+                          <label className="flex-1 flex items-center justify-center gap-2 px-3 py-2 bg-zinc-900 border border-dashed border-zinc-700 hover:border-emerald-500 rounded-xl cursor-pointer text-xs font-mono text-zinc-300 transition-colors">
+                            <ImageIcon className="w-4 h-4 text-emerald-400" />
+                            <span className="truncate">{receiptFileName || 'Attach Screenshot / Receipt Image'}</span>
                             <input
                               type="file"
                               accept="image/*"
-                              className="hidden"
                               onChange={handleReceiptUpload}
+                              className="hidden"
                             />
                           </label>
-                          {receiptFileName && (
+                          {paymentReceiptUrl && (
                             <button
                               type="button"
-                              onClick={() => { setPaymentReceiptUrl(''); setReceiptFileName(''); }}
-                              className="text-xs text-red-400 hover:text-red-300 font-mono"
+                              onClick={() => {
+                                setPaymentReceiptUrl('');
+                                setReceiptFileName('');
+                              }}
+                              className="p-2 bg-red-950/40 text-red-400 border border-red-800/60 rounded-xl hover:bg-red-900/60 transition-colors"
+                              title="Remove Attachment"
                             >
-                              Remove
+                              <X className="w-4 h-4" />
                             </button>
                           )}
                         </div>
-                        {paymentReceiptUrl && (
-                          <div className="mt-2 relative inline-block">
-                            <img src={paymentReceiptUrl} alt="Receipt preview" className="w-20 h-20 object-cover rounded-lg border border-zinc-700" />
-                            <span className="text-[10px] text-emerald-400 font-mono block mt-1">✓ Receipt Attached</span>
-                          </div>
-                        )}
                       </div>
                     </div>
                   )}
@@ -1072,58 +1112,48 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                   {/* Bank Transfer Box */}
                   {paymentMethod === 'bank_transfer' && (
                     <div className="bg-zinc-950 border border-purple-500/40 rounded-2xl p-4 space-y-4 animate-in fade-in duration-200">
-                      <div className="flex items-center justify-between border-b border-zinc-800 pb-2">
-                        <div className="flex items-center gap-2">
-                          <Building2 className="w-4 h-4 text-purple-400" />
-                          <span className="font-mono font-bold text-purple-400 text-xs uppercase">Bank Transfer / InstaPay</span>
-                        </div>
-                        <span className="text-[10px] font-mono bg-purple-500/20 text-purple-300 px-2 py-0.5 rounded-full">PESONet / InstaPay</span>
-                      </div>
-
-                      <div className="space-y-2 text-xs bg-zinc-900/80 p-3 rounded-xl border border-zinc-800">
+                      <div className="space-y-2 text-xs bg-zinc-900/60 p-3.5 rounded-xl border border-zinc-800">
                         <div>
                           <span className="text-[10px] font-mono text-zinc-500 uppercase block">Bank Name</span>
-                          <span className="font-bold text-white">{bankName}</span>
+                          <span className="font-bold text-white text-sm">{bankName || 'BDO / BPI / UnionBank'}</span>
                         </div>
                         <div>
                           <span className="text-[10px] font-mono text-zinc-500 uppercase block">Account Name</span>
-                          <div className="flex items-center justify-between bg-zinc-950 px-2.5 py-1.5 rounded-lg border border-zinc-800">
-                            <span className="font-bold text-white">{bankAccountName}</span>
+                          <div className="flex items-center justify-between bg-zinc-950 px-3 py-2 rounded-lg border border-zinc-800 mt-0.5">
+                            <span className="font-bold text-zinc-200">{bankAccountName || 'NorthBros Garage Inc.'}</span>
                             <button
                               type="button"
-                              onClick={() => handleCopy(bankAccountName, 'Bank Account Name')}
-                              className="text-zinc-400 hover:text-purple-400"
+                              onClick={() => handleCopy(bankAccountName || 'NorthBros Garage Inc.', 'Bank Account Name')}
+                              className="text-zinc-400 hover:text-white p-1"
                             >
-                              <Copy className="w-3.5 h-3.5" />
+                              <Copy className="w-4 h-4" />
                             </button>
                           </div>
                         </div>
                         <div>
                           <span className="text-[10px] font-mono text-zinc-500 uppercase block">Account Number</span>
-                          <div className="flex items-center justify-between bg-zinc-950 px-2.5 py-1.5 rounded-lg border border-zinc-800">
-                            <span className="font-mono font-bold text-purple-300">{bankAccountNumber}</span>
+                          <div className="flex items-center justify-between bg-zinc-950 px-3 py-2 rounded-lg border border-zinc-800 mt-0.5">
+                            <span className="font-mono font-bold text-purple-300 text-sm">{bankAccountNumber || '0012-3456-7890'}</span>
                             <button
                               type="button"
-                              onClick={() => handleCopy(bankAccountNumber, 'Bank Account Number')}
-                              className="text-zinc-400 hover:text-purple-400"
+                              onClick={() => handleCopy(bankAccountNumber || '0012-3456-7890', 'Bank Account Number')}
+                              className="text-zinc-400 hover:text-white p-1"
                             >
-                              <Copy className="w-3.5 h-3.5" />
+                              <Copy className="w-4 h-4" />
                             </button>
                           </div>
                         </div>
                       </div>
 
-                      <p className="text-[11px] text-zinc-400 italic">{bankInstructions}</p>
-
-                      <div className="space-y-2 pt-1">
+                      <div className="space-y-1.5">
                         <div className="flex items-center justify-between">
-                          <label className="block text-xs font-mono font-bold text-purple-300 uppercase">
+                          <label className="block text-xs font-mono font-bold text-zinc-300 uppercase">
                             Bank Trace / Reference Number *
                           </label>
                           <button
                             type="button"
                             onClick={handlePasteClipboard}
-                            className="text-[10px] font-mono text-purple-400 hover:text-purple-300 bg-purple-950/60 hover:bg-purple-900/80 px-2 py-0.5 rounded border border-purple-800/60 flex items-center gap-1 transition-colors"
+                            className="text-[10px] font-mono text-purple-400 hover:text-purple-300 bg-purple-950/60 px-2 py-0.5 rounded border border-purple-800/60 flex items-center gap-1"
                           >
                             <Copy className="w-3 h-3" /> Paste
                           </button>
@@ -1132,30 +1162,48 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                         <input
                           type="text"
                           required
-                          placeholder="e.g. 2024081200192837"
+                          placeholder="Enter Bank Deposit / InstaPay Reference No."
                           value={paymentReference}
                           onChange={(e) => setPaymentReference(e.target.value)}
-                          className={`w-full bg-zinc-900 border rounded-xl p-2.5 text-white font-mono text-sm tracking-wider focus:outline-none transition-colors ${
+                          className={`w-full bg-zinc-900 border rounded-xl p-2.5 text-white font-mono text-sm tracking-wider focus:outline-none ${
                             !paymentReference.trim()
                               ? 'border-zinc-700 focus:border-purple-400'
                               : currentPaymentValidation.isValid
-                              ? 'border-emerald-500 bg-emerald-950/10 focus:border-emerald-400'
-                              : 'border-red-500 bg-red-950/10 focus:border-red-400'
+                              ? 'border-emerald-500 bg-emerald-950/10'
+                              : 'border-red-500 bg-red-950/10'
                           }`}
                         />
+                      </div>
 
-                        {/* Real-time Payment Validation Badge */}
-                        <div className={`p-2 rounded-lg border text-[11px] font-mono flex items-start gap-1.5 ${
-                          !paymentReference.trim()
-                            ? 'bg-zinc-900/90 border-zinc-800 text-zinc-400'
-                            : currentPaymentValidation.isValid
-                            ? 'bg-emerald-950/50 border-emerald-500/40 text-emerald-300'
-                            : 'bg-red-950/50 border-red-500/40 text-red-300'
-                        }`}>
-                          <ShieldCheck className={`w-3.5 h-3.5 shrink-0 mt-0.5 ${
-                            currentPaymentValidation.isValid ? 'text-emerald-400' : 'text-zinc-500'
-                          }`} />
-                          <p className="font-semibold">{currentPaymentValidation.message}</p>
+                      {/* Proof of Payment Screenshot Upload */}
+                      <div className="space-y-1.5 pt-1">
+                        <label className="block text-[11px] font-mono font-bold text-zinc-400 uppercase">
+                          Bank Transfer Slip / Receipt (Optional)
+                        </label>
+                        <div className="flex items-center gap-2">
+                          <label className="flex-1 flex items-center justify-center gap-2 px-3 py-2 bg-zinc-900 border border-dashed border-zinc-700 hover:border-purple-500 rounded-xl cursor-pointer text-xs font-mono text-zinc-300 transition-colors">
+                            <ImageIcon className="w-4 h-4 text-purple-400" />
+                            <span className="truncate">{receiptFileName || 'Attach Deposit Slip / Transfer Proof'}</span>
+                            <input
+                              type="file"
+                              accept="image/*"
+                              onChange={handleReceiptUpload}
+                              className="hidden"
+                            />
+                          </label>
+                          {paymentReceiptUrl && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setPaymentReceiptUrl('');
+                                setReceiptFileName('');
+                              }}
+                              className="p-2 bg-red-950/40 text-red-400 border border-red-800/60 rounded-xl hover:bg-red-900/60 transition-colors"
+                              title="Remove Attachment"
+                            >
+                              <X className="w-4 h-4" />
+                            </button>
+                          )}
                         </div>
                       </div>
                     </div>
@@ -1282,11 +1330,58 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
           {/* Footer Actions */}
           <div className="p-5 sm:p-6 border-t border-zinc-800 bg-zinc-950 space-y-3">
             {step !== 'success' && cart.length > 0 && (
-              <div className="space-y-1.5 pb-2 border-b border-zinc-900 mb-2">
+              <div className="space-y-2 pb-2 border-b border-zinc-900 mb-2">
+                {/* Promo Code Input Box */}
+                <div className="bg-zinc-900 p-2.5 rounded-xl border border-zinc-800 space-y-1.5">
+                  <div className="flex items-center justify-between text-[11px] font-mono text-zinc-400">
+                    <span className="flex items-center gap-1 text-amber-400 font-bold uppercase">
+                      <Tag className="w-3.5 h-3.5" /> Promo / Discount Code
+                    </span>
+                    <span className="text-[10px] text-zinc-500">Try: JDM10 or WELCOME500</span>
+                  </div>
+                  <div className="flex gap-1.5">
+                    <input
+                      type="text"
+                      placeholder="e.g. JDM10"
+                      value={promoCode}
+                      onChange={(e) => setPromoCode(e.target.value)}
+                      className="flex-1 bg-zinc-950 border border-zinc-700 rounded-lg px-2.5 py-1 text-white font-mono text-xs uppercase focus:outline-none focus:border-amber-400"
+                    />
+                    <button
+                      type="button"
+                      onClick={handleApplyPromoCode}
+                      className="bg-amber-500 hover:bg-amber-400 text-zinc-950 font-black px-3 py-1 rounded-lg text-xs uppercase font-mono transition-colors cursor-pointer"
+                    >
+                      Apply
+                    </button>
+                  </div>
+                  {promoError && <p className="text-[10px] text-red-400 font-mono">{promoError}</p>}
+                  {appliedDiscount && (
+                    <div className="flex items-center justify-between text-[11px] font-mono text-emerald-400 bg-emerald-950/40 px-2 py-0.5 rounded border border-emerald-500/30">
+                      <span>✓ {appliedDiscount.description}</span>
+                      <button
+                        type="button"
+                        onClick={() => { setAppliedDiscount(null); setPromoCode(''); }}
+                        className="text-zinc-500 hover:text-red-400 underline ml-2 text-[10px]"
+                      >
+                        Remove
+                      </button>
+                    </div>
+                  )}
+                </div>
+
                 <div className="flex items-center justify-between text-xs font-mono">
                   <span className="text-zinc-500 uppercase">Items Subtotal</span>
                   <span className="text-zinc-300">₱{subtotal.toLocaleString()}</span>
                 </div>
+
+                {appliedDiscount && (
+                  <div className="flex items-center justify-between text-xs font-mono font-bold text-emerald-400">
+                    <span className="uppercase">Coupon ({appliedDiscount.code})</span>
+                    <span>- ₱{discountAmount.toLocaleString()}</span>
+                  </div>
+                )}
+
                 <div className="flex items-center justify-between text-xs font-mono">
                   <span className="text-zinc-500 uppercase">Shipping Fee</span>
                   <span className="text-emerald-500 font-bold">+ ₱{totalShipping.toLocaleString()}</span>
@@ -1359,17 +1454,37 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
             )}
 
             {step === 'success' && (
-              <button
-                onClick={() => { setStep('cart'); onClose(); }}
-                className="w-full bg-amber-500 hover:bg-amber-400 text-zinc-950 font-bold py-3 px-4 rounded-xl text-xs uppercase tracking-wider transition-colors cursor-pointer"
-              >
-                Back to Garage Store
-              </button>
+              <div className="space-y-2">
+                {completedOrder && (
+                  <button
+                    type="button"
+                    onClick={() => setShowInvoiceModal(true)}
+                    className="w-full bg-zinc-800 hover:bg-zinc-700 text-amber-400 border border-amber-500/40 font-bold py-3 px-4 rounded-xl text-xs uppercase font-mono tracking-wider transition-colors flex items-center justify-center gap-2 cursor-pointer"
+                  >
+                    <FileText className="w-4 h-4" />
+                    <span>View / Print Official Receipt</span>
+                  </button>
+                )}
+                <button
+                  onClick={() => { setStep('cart'); onClose(); }}
+                  className="w-full bg-amber-500 hover:bg-amber-400 text-zinc-950 font-bold py-3 px-4 rounded-xl text-xs uppercase tracking-wider transition-colors cursor-pointer"
+                >
+                  Back to Garage Store
+                </button>
+              </div>
             )}
           </div>
 
         </div>
       </div>
+
+      {/* Invoice / Receipt Printable Modal */}
+      <InvoiceModal
+        isOpen={showInvoiceModal}
+        onClose={() => setShowInvoiceModal(false)}
+        order={completedOrder}
+        siteSettings={siteSettings}
+      />
 
       {/* Zoomed QR Code Lightbox Modal */}
       {zoomedQr && (
@@ -1419,6 +1534,23 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
             </button>
           </div>
         </div>
+      )}
+
+      {/* Mobile App Launcher Guidance Modal */}
+      {appLauncherType && (
+        <AppLauncherModal
+          isOpen={!!appLauncherType}
+          onClose={() => setAppLauncherType(null)}
+          appType={appLauncherType}
+          accountNumber={appLauncherType === 'gcash' ? (gcashNumber || '09171234567') : (paymayaNumber || '09171234567')}
+          accountName={appLauncherType === 'gcash' ? (gcashName || 'NorthBros Garage') : (paymayaName || 'NorthBros Garage')}
+          amount={totalAmount}
+          portalUrl={appLauncherType === 'gcash' ? gcashPortalUrl : paymayaPortalUrl}
+          qrUrl={appLauncherType === 'gcash'
+            ? (createDynamicQrPhUrl('gcash', gcashNumber || '09171234567', gcashName, totalAmount) || gcashQr)
+            : (createDynamicQrPhUrl('paymaya', paymayaNumber || '09171234567', paymayaName, totalAmount) || paymayaQr)
+          }
+        />
       )}
     </div>
   );

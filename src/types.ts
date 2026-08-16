@@ -127,6 +127,8 @@ export interface Order {
   paymentReference?: string;
   paymentReceiptUrl?: string;
   paymentNotes?: string;
+  discountAmount?: number;
+  discountCode?: string;
   verifiedAt?: string;
   verifiedBy?: string;
 }
@@ -194,12 +196,14 @@ export interface SiteSettings {
   paymentGcashName?: string;
   paymentGcashNumber?: string;
   paymentGcashQr?: string;
+  paymentGcashPortalUrl?: string;
   paymentGcashInstructions?: string;
 
   paymentPaymayaEnabled?: boolean;
   paymentPaymayaName?: string;
   paymentPaymayaNumber?: string;
   paymentPaymayaQr?: string;
+  paymentPaymayaPortalUrl?: string;
   paymentPaymayaInstructions?: string;
 
   paymentCodEnabled?: boolean;

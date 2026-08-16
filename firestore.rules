@@ -17,6 +17,23 @@ service cloud.firestore {
       allow delete: if isAdmin();
     }
 
+    // Services Collection (Services Catalog)
+    match /services/{serviceId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // Builds Collection (Project Car Chronicles)
+    match /builds/{buildId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // Meta Collection (System & Connection Check)
+    match /_meta/{docId} {
+      allow read, write: if true;
+    }
+
     // Orders Collection (Anti-Payment Fraud Security Rules)
     match /orders/{orderId} {
       allow read: if true;

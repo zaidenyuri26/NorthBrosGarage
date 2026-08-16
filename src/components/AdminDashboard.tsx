@@ -224,12 +224,14 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         paymentGcashName: sSettings?.paymentGcashName ?? '',
         paymentGcashNumber: sSettings?.paymentGcashNumber ?? '',
         paymentGcashQr: sSettings?.paymentGcashQr ?? '',
+        paymentGcashPortalUrl: sSettings?.paymentGcashPortalUrl ?? '',
         paymentGcashInstructions: sSettings?.paymentGcashInstructions ?? '',
 
         paymentPaymayaEnabled: sSettings?.paymentPaymayaEnabled ?? true,
         paymentPaymayaName: sSettings?.paymentPaymayaName ?? '',
         paymentPaymayaNumber: sSettings?.paymentPaymayaNumber ?? '',
         paymentPaymayaQr: sSettings?.paymentPaymayaQr ?? '',
+        paymentPaymayaPortalUrl: sSettings?.paymentPaymayaPortalUrl ?? '',
         paymentPaymayaInstructions: sSettings?.paymentPaymayaInstructions ?? '',
 
         paymentCodEnabled: sSettings?.paymentCodEnabled ?? true,
@@ -919,6 +921,19 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                     value={siteSettingsForm.paymentGcashQr || ''}
                     onChange={(val) => setSiteSettingsForm({ ...siteSettingsForm, paymentGcashQr: val })}
                   />
+                  <p className="text-[11px] text-zinc-500">Upload your official QR Ph Merchant Code from your GCash Business or Personal App.</p>
+                </div>
+
+                <div className="md:col-span-2">
+                  <label className="font-mono text-zinc-400 text-xs block mb-1">Optional: Official GCash Checkout / PayMongo / Xendit Hosted Payment Link</label>
+                  <input
+                    type="url"
+                    value={siteSettingsForm.paymentGcashPortalUrl || ''}
+                    onChange={(e) => setSiteSettingsForm({ ...siteSettingsForm, paymentGcashPortalUrl: e.target.value })}
+                    placeholder="https://pm.link/... or https://checkout.xendit.co/... (Optional)"
+                    className="w-full bg-zinc-950 border border-zinc-800 rounded-xl p-3 text-blue-400 font-mono text-xs focus:border-blue-500 outline-none"
+                  />
+                  <p className="text-[11px] text-zinc-500 mt-1">If provided, customers can click a button to open your official external payment gateway URL directly.</p>
                 </div>
 
                 <div className="md:col-span-2">
@@ -993,6 +1008,18 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                     value={siteSettingsForm.paymentPaymayaQr || ''}
                     onChange={(val) => setSiteSettingsForm({ ...siteSettingsForm, paymentPaymayaQr: val })}
                   />
+                </div>
+
+                <div className="md:col-span-2">
+                  <label className="font-mono text-zinc-400 text-xs block mb-1">Optional: Official Maya Checkout / Hosted Payment Link</label>
+                  <input
+                    type="url"
+                    value={siteSettingsForm.paymentPaymayaPortalUrl || ''}
+                    onChange={(e) => setSiteSettingsForm({ ...siteSettingsForm, paymentPaymayaPortalUrl: e.target.value })}
+                    placeholder="https://maya.ph/... or https://checkout.paymaya.com/... (Optional)"
+                    className="w-full bg-zinc-950 border border-zinc-800 rounded-xl p-3 text-emerald-400 font-mono text-xs focus:border-emerald-500 outline-none"
+                  />
+                  <p className="text-[11px] text-zinc-500 mt-1">If provided, customers can click a button to open your official external payment gateway URL directly.</p>
                 </div>
 
                 <div className="md:col-span-2">

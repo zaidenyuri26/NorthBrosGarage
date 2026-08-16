@@ -11,6 +11,7 @@ interface PartsCatalogProps {
   setSelectedCategory: (cat: string) => void;
   onAddToCart: (product: Product) => void;
   onViewProduct: (product: Product) => void;
+  onBuyNow?: (product: Product) => void;
   userRole?: UserRole;
   onEditProduct?: (product: Product) => void;
   onDeleteProduct?: (productId: string) => void;
@@ -26,6 +27,7 @@ export const PartsCatalog: React.FC<PartsCatalogProps> = ({
   setSelectedCategory,
   onAddToCart,
   onViewProduct,
+  onBuyNow,
   userRole,
   onEditProduct,
   onDeleteProduct,
@@ -245,30 +247,41 @@ export const PartsCatalog: React.FC<PartsCatalogProps> = ({
                     onClick={() => handleAddCart(product)}
                     disabled={product.stock <= 0}
                     id={`add-cart-${product.id}`}
-                    className={`flex-1 flex items-center justify-center gap-1.5 sm:gap-2 font-bold py-2 sm:py-2.5 px-2 sm:px-3 rounded-xl text-[11px] sm:text-sm uppercase tracking-wider transition-all active:scale-95 ${
+                    className={`flex-1 flex items-center justify-center gap-1.5 font-bold py-2 sm:py-2.5 px-2 rounded-xl text-[11px] sm:text-xs uppercase tracking-wider transition-all active:scale-95 ${
                       product.stock <= 0
                         ? 'bg-zinc-800 text-zinc-500 cursor-not-allowed'
                         : isAdded
                         ? 'bg-emerald-500 text-zinc-950 font-black'
-                        : 'bg-white hover:bg-zinc-100 text-zinc-950 shadow-md shadow-white/5'
+                        : 'bg-zinc-800 hover:bg-zinc-700 text-zinc-100 border border-zinc-700'
                     }`}
                   >
                     {isAdded ? (
                       <>
-                        <Check className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                        <Check className="w-3.5 h-3.5" />
                         <span>Added</span>
                       </>
                     ) : (
                       <>
-                        <ShoppingBag className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-                        <span>Add to Cart</span>
+                        <ShoppingBag className="w-3.5 h-3.5 text-amber-400" />
+                        <span>Add</span>
                       </>
                     )}
                   </button>
 
                   <button
+                    onClick={() => {
+                      handleAddCart(product);
+                      if (onBuyNow) onBuyNow(product);
+                    }}
+                    disabled={product.stock <= 0}
+                    className="flex-1 bg-amber-500 hover:bg-amber-400 disabled:opacity-50 text-zinc-950 font-black py-2 sm:py-2.5 px-2 rounded-xl text-[11px] sm:text-xs uppercase tracking-wider flex items-center justify-center gap-1 transition-all active:scale-95 shadow-md shadow-amber-500/10 cursor-pointer"
+                  >
+                    <span>⚡ Buy Now</span>
+                  </button>
+
+                  <button
                     onClick={() => onViewProduct(product)}
-                    className="p-2.5 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 rounded-xl transition-colors"
+                    className="p-2.5 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 rounded-xl transition-colors shrink-0"
                     title="View Full Specs"
                   >
                     <Eye className="w-4 h-4" />

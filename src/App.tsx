@@ -290,6 +290,10 @@ export default function App() {
           setSelectedCategory={setSelectedCategory}
           onAddToCart={handleAddToCart}
           onViewProduct={(p) => setViewingProduct(p)}
+          onBuyNow={(p) => {
+            handleAddToCart(p);
+            setIsCartOpen(true);
+          }}
           userRole={user?.role}
           onAddNewProduct={() => setIsAdminDashboardOpen(true)}
           onEditProduct={() => setIsAdminDashboardOpen(true)}
@@ -422,6 +426,10 @@ export default function App() {
         product={viewingProduct}
         onClose={() => setViewingProduct(null)}
         onAddToCart={handleAddToCart}
+        onBuyNow={(p) => {
+          handleAddToCart(p);
+          setIsCartOpen(true);
+        }}
       />
 
       {/* Cart Drawer */}

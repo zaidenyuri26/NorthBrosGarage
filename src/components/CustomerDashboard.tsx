@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { User, ShoppingBag, Car, Shield, X, MapPin, Phone, CheckCircle2, History, Settings, ExternalLink, Plus, Navigation, Radio, Truck } from 'lucide-react';
+import { User, ShoppingBag, Car, Shield, X, MapPin, Phone, CheckCircle2, History, Settings, ExternalLink, Plus, Navigation, Radio, Truck, FileText } from 'lucide-react';
 import { UserProfile, Order, Product } from '../types';
 import { fetchOrders, saveUserProfile, subscribeUserOrders } from '../lib/dbService';
 import { useToast } from '../context/ToastContext';
 import { OrderTracker } from './OrderTracker';
+import { InvoiceModal } from './InvoiceModal';
 
 interface CustomerDashboardProps {
   onClose: () => void;
@@ -22,6 +23,7 @@ export const CustomerDashboard: React.FC<CustomerDashboardProps> = ({
   const [activeTab, setActiveTab] = useState<'tracking' | 'orders' | 'garage' | 'profile'>('tracking');
   const [orders, setOrders] = useState<Order[]>([]);
   const [selectedTrackOrderId, setSelectedTrackOrderId] = useState<string | null>(null);
+  const [selectedInvoiceOrder, setSelectedInvoiceOrder] = useState<Order | null>(null);
   const [loading, setLoading] = useState(true);
   const [reorderSuccess, setReorderSuccess] = useState<string | null>(null);
 
@@ -378,6 +380,15 @@ export const CustomerDashboard: React.FC<CustomerDashboardProps> = ({
                               </span>
 
                               <button
+                                onClick={() => setSelectedInvoiceOrder(o)}
+                                className="flex items-center gap-1.5 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 border border-zinc-700 px-2.5 py-1 rounded-lg text-[11px] font-mono font-bold uppercase transition-all"
+                                title="View & Print Official Receipt"
+                              >
+                                <FileText className="w-3 h-3 text-amber-400" />
+                                <span>Receipt</span>
+                              </button>
+
+                              <button
                                 onClick={() => handleTrackSingleOrder(o.id)}
                                 className="flex items-center gap-1.5 bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 border border-amber-500/30 px-2.5 py-1 rounded-lg text-[11px] font-mono font-bold uppercase transition-all"
                               >
@@ -545,6 +556,12 @@ export const CustomerDashboard: React.FC<CustomerDashboardProps> = ({
           </div>
         </div>
       </div>
+
+      <InvoiceModal
+        isOpen={!!selectedInvoiceOrder}
+        onClose={() => setSelectedInvoiceOrder(null)}
+        order={selectedInvoiceOrder}
+      />
     </div>
   );
 };

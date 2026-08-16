@@ -6,12 +6,14 @@ interface ProductDetailModalProps {
   product: Product | null;
   onClose: () => void;
   onAddToCart: (product: Product) => void;
+  onBuyNow?: (product: Product) => void;
 }
 
 export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
   product,
   onClose,
   onAddToCart,
+  onBuyNow,
 }) => {
   const [added, setAdded] = React.useState(false);
 
@@ -21,6 +23,14 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
     onAddToCart(product);
     setAdded(true);
     setTimeout(() => setAdded(false), 2000);
+  };
+
+  const handleInstantBuy = () => {
+    onAddToCart(product);
+    if (onBuyNow) {
+      onBuyNow(product);
+    }
+    onClose();
   };
 
   return (
@@ -124,25 +134,33 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
             </div>
 
             {/* Action Buttons */}
-            <div className="pt-4 border-t border-zinc-800">
+            <div className="pt-4 border-t border-zinc-800 flex flex-col sm:flex-row gap-2">
               <button
                 onClick={handleAdd}
                 disabled={product.stock <= 0}
-                className={`w-full font-bold py-3 px-4 rounded-xl text-sm uppercase tracking-wider flex items-center justify-center gap-2 transition-all ${
+                className={`flex-1 font-bold py-3 px-4 rounded-xl text-sm uppercase tracking-wider flex items-center justify-center gap-2 transition-all ${
                   added
                     ? 'bg-emerald-500 text-zinc-950'
-                    : 'bg-amber-500 hover:bg-amber-400 text-zinc-950 shadow-lg shadow-amber-500/20'
+                    : 'bg-zinc-800 hover:bg-zinc-700 text-zinc-100 border border-zinc-700'
                 }`}
               >
                 {added ? (
                   <>
-                    <Check className="w-4 h-4" /> Added to Shopping Cart
+                    <Check className="w-4 h-4 text-zinc-950" /> Added to Cart
                   </>
                 ) : (
                   <>
-                    <ShoppingBag className="w-4 h-4" /> Add to Shopping Cart
+                    <ShoppingBag className="w-4 h-4 text-amber-400" /> Add to Cart
                   </>
                 )}
+              </button>
+
+              <button
+                onClick={handleInstantBuy}
+                disabled={product.stock <= 0}
+                className="flex-1 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-zinc-950 font-black py-3 px-4 rounded-xl text-sm uppercase tracking-wider flex items-center justify-center gap-1.5 transition-all shadow-lg shadow-amber-500/20 cursor-pointer disabled:opacity-50"
+              >
+                <span>⚡ Buy Now</span>
               </button>
             </div>
 

@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { UserProfile } from '../types';
 import { SelectedVehicle } from '../components/FitmentSelector';
 import { saveUserProfile } from '../lib/dbService';
