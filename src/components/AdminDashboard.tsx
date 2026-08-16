@@ -2270,8 +2270,37 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   No orders placed yet.
                 </div>
               ) : (
-                orders.map((o) => (
-                  <div key={o.id} className="p-5 bg-zinc-900 border border-zinc-800 rounded-2xl space-y-4 text-sm">
+                orders.map((o) => {
+                  const duplicateOrders = o.paymentReference
+                    ? orders.filter(
+                        other =>
+                          other.id !== o.id &&
+                          other.paymentReference &&
+                          other.paymentReference.trim().replace(/[\s-]/g, '').toUpperCase() ===
+                            o.paymentReference?.trim().replace(/[\s-]/g, '').toUpperCase()
+                      )
+                    : [];
+
+                  return (
+                    <div key={o.id} className="p-5 bg-zinc-900 border border-zinc-800 rounded-2xl space-y-4 text-sm">
+                      {/* Duplicate Reference Warning Badge */}
+                      {duplicateOrders.length > 0 && (
+                        <div className="bg-red-950/90 border border-red-500/60 rounded-xl p-3 flex items-center justify-between gap-3 text-xs font-mono text-red-200">
+                          <div className="flex items-center gap-2">
+                            <AlertTriangle className="w-4 h-4 text-red-400 shrink-0 animate-bounce" />
+                            <span>
+                              <strong className="text-red-400">FRAUD ALERT: DUPLICATE REFERENCE DETECTED!</strong> Ref #{o.paymentReference} is also present on Order #{duplicateOrders[0].id.slice(0, 8).toUpperCase()}.
+                            </span>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => handleUpdatePaymentStatus(o.id, 'failed')}
+                            className="bg-red-600 hover:bg-red-500 text-white font-bold px-3 py-1 rounded-lg text-[10px] uppercase shrink-0 font-mono transition-colors"
+                          >
+                            Reject Fake Payment
+                          </button>
+                        </div>
+                      )}
                     {/* Header: Order ID, Customer, Amount, Order Status */}
                     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-zinc-800/80 pb-3">
                       <div>
@@ -2416,8 +2445,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                       ))}
                     </div>
                   </div>
-                ))
-              )}
+                );
+              })
+            )}
             </div>
           </div>
         )}

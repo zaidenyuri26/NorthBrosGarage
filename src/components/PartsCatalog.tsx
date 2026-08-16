@@ -145,7 +145,7 @@ export const PartsCatalog: React.FC<PartsCatalogProps> = ({
           return (
             <div
               key={product.id}
-              className="bg-zinc-900/90 border border-zinc-800 hover:border-zinc-700 rounded-2xl overflow-hidden flex flex-col justify-between transition-all duration-300 group hover:shadow-xl"
+              className="optimize-card-render bg-zinc-900/90 border border-zinc-800 hover:border-zinc-700 rounded-2xl overflow-hidden flex flex-col justify-between transition-all duration-300 group hover:shadow-xl"
             >
               <div>
                 {/* Image Area */}
@@ -153,11 +153,13 @@ export const PartsCatalog: React.FC<PartsCatalogProps> = ({
                   <img
                     src={product.image || 'https://images.unsplash.com/photo-1617814076367-b759c7d7e738?auto=format&fit=crop&q=80&w=800'}
                     alt={product.name}
+                    loading="lazy"
+                    decoding="async"
                     referrerPolicy="no-referrer"
                     onError={(e) => {
                       (e.target as HTMLImageElement).src = 'https://images.unsplash.com/photo-1617814076367-b759c7d7e738?auto=format&fit=crop&q=80&w=800';
                     }}
-                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500 opacity-90"
+                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300 opacity-90 will-change-transform"
                   />
                   <div className="absolute inset-0 bg-gradient-to-t from-zinc-950 via-transparent to-transparent opacity-60" />
 

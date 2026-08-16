@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { X, User, Shield, Mail, Lock, Sparkles, CheckCircle2, Eye, EyeOff, KeyRound, AlertCircle, ArrowRight } from 'lucide-react';
+import { X, Lock, Mail, CheckCircle2, Eye, EyeOff, AlertCircle, ArrowRight, LogIn, UserPlus } from 'lucide-react';
 import {
   signInWithEmailAndPassword,
   createUserWithEmailAndPassword,
@@ -8,7 +8,7 @@ import {
 } from 'firebase/auth';
 import { auth, googleProvider } from '../lib/firebase';
 import { saveUserProfile, getUserProfile } from '../lib/dbService';
-import { UserProfile, UserRole } from '../types';
+import { UserProfile } from '../types';
 import { useToast } from '../context/ToastContext';
 
 interface AuthModalProps {
@@ -20,7 +20,6 @@ interface AuthModalProps {
 export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onLoginSuccess }) => {
   const { toast } = useToast();
   const [isRegister, setIsRegister] = useState(false);
-  const [role, setRole] = useState<UserRole>('customer');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [displayName, setDisplayName] = useState('');
@@ -57,7 +56,6 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onLoginSu
 
     try {
       const isTargetAdmin = cleanEmail.toLowerCase() === 'zaidenyuri26@gmail.com';
-      const assignedRole = isTargetAdmin ? 'admin' : 'customer';
 
       if (isRegister) {
         const cred = await createUserWithEmailAndPassword(auth, cleanEmail, cleanPassword);
@@ -65,7 +63,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onLoginSu
           uid: cred.user.uid,
           email: cred.user.email || cleanEmail,
           displayName: displayName.trim() || cleanEmail.split('@')[0],
-          role: assignedRole,
+          role: isTargetAdmin ? 'admin' : 'customer',
           createdAt: new Date().toISOString()
         };
         await saveUserProfile(profile);
@@ -80,13 +78,10 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onLoginSu
             uid: cred.user.uid,
             email: cred.user.email || cleanEmail,
             displayName: cred.user.displayName || cleanEmail.split('@')[0],
-            role: assignedRole
+            role: isTargetAdmin ? 'admin' : 'customer'
           };
-        } else {
-          // Always ensure role consistency
-          if (isTargetAdmin) {
-            profile.role = 'admin';
-          }
+        } else if (isTargetAdmin) {
+          profile.role = 'admin';
         }
         await saveUserProfile(profile);
         toast.authSuccess({ displayName: profile.displayName, role: profile.role, isRegister: false });
@@ -154,7 +149,6 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onLoginSu
       setError(null);
       const res = await signInWithPopup(auth, googleProvider);
       const isTargetAdmin = res.user.email?.toLowerCase() === 'zaidenyuri26@gmail.com';
-      const assignedRole = isTargetAdmin ? 'admin' : 'customer';
 
       let profile = await getUserProfile(res.user.uid);
       if (!profile) {
@@ -162,7 +156,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onLoginSu
           uid: res.user.uid,
           email: res.user.email || '',
           displayName: res.user.displayName || res.user.email?.split('@')[0] || 'User',
-          role: assignedRole,
+          role: isTargetAdmin ? 'admin' : 'customer',
           createdAt: new Date().toISOString()
         };
       } else if (isTargetAdmin) {
@@ -197,52 +191,16 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onLoginSu
         {/* Header */}
         <div className="text-center space-y-2 mb-6">
           <div className="inline-flex p-3 bg-zinc-950 rounded-2xl border border-zinc-800 text-amber-400 mb-1">
-            {role === 'admin' ? <Shield className="w-6 h-6" /> : <User className="w-6 h-6" />}
+            {isRegister ? <UserPlus className="w-6 h-6" /> : <LogIn className="w-6 h-6" />}
           </div>
           <h2 className="text-3xl font-black italic font-mono uppercase text-white tracking-wide">
-            {isRegister ? 'CREATE ACCOUNT' : 'WELCOME BACK'}
+            {isRegister ? 'CREATE ACCOUNT' : 'SIGN IN'}
           </h2>
           <p className="text-sm text-zinc-400">
             {isRegister 
-              ? 'Register to track service builds, orders, and dyno logs.' 
-              : 'Sign in to access your garage profile, orders, and appointments.'}
+              ? 'Register with your email to track service builds, orders, and dyno logs.' 
+              : 'Enter your email and password to access your account.'}
           </p>
-        </div>
-
-        {/* Role Selector Tabs */}
-        <div className="grid grid-cols-2 gap-2 bg-zinc-950 p-1 rounded-xl border border-zinc-800 mb-5 text-sm font-mono font-bold">
-          <button
-            type="button"
-            onClick={() => {
-              setRole('customer');
-              setError(null);
-            }}
-            className={`py-2 rounded-lg transition-all ${
-              role === 'customer'
-                ? 'bg-amber-500 text-zinc-950 shadow-md'
-                : 'text-zinc-400 hover:text-white'
-            }`}
-          >
-            Customer Access
-          </button>
-          <button
-            type="button"
-            onClick={() => {
-              setRole('admin');
-              setError(null);
-              if (!email) {
-                setEmail('zaidenyuri26@gmail.com');
-              }
-            }}
-            id="auth-select-admin-role"
-            className={`py-2 rounded-lg transition-all ${
-              role === 'admin'
-                ? 'bg-amber-500 text-zinc-950 shadow-md'
-                : 'text-zinc-400 hover:text-white'
-            }`}
-          >
-            Garage Admin
-          </button>
         </div>
 
         {/* Dynamic Error & Resolution Notice */}
@@ -294,23 +252,12 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onLoginSu
           )}
 
           <div>
-            <div className="flex items-center justify-between">
-              <label className="text-[11px] font-mono text-zinc-400 uppercase font-bold">Email Address</label>
-              {role === 'admin' && (
-                <button
-                  type="button"
-                  onClick={() => setEmail('zaidenyuri26@gmail.com')}
-                  className="text-[10px] font-mono text-amber-400 hover:underline"
-                >
-                  Use Admin Email
-                </button>
-              )}
-            </div>
+            <label className="text-[11px] font-mono text-zinc-400 uppercase font-bold">Email Address</label>
             <div className="relative mt-1">
               <input
                 type="email"
                 required
-                placeholder={role === 'admin' ? 'zaidenyuri26@gmail.com' : 'driver@domain.com'}
+                placeholder="your.email@domain.com"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 className="w-full bg-zinc-950 border border-zinc-800 rounded-xl pl-9 pr-3 py-2 text-zinc-100 focus:border-amber-400 focus:outline-none text-sm font-mono"
@@ -356,39 +303,20 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onLoginSu
             type="submit"
             disabled={loading}
             id="auth-submit-btn"
-            className="w-full bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-zinc-950 font-black py-3 rounded-xl text-sm uppercase tracking-wider transition-all shadow-lg shadow-amber-500/20 active:scale-95 flex items-center justify-center gap-2"
+            className="w-full bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-zinc-950 font-black py-3 rounded-xl text-sm uppercase tracking-wider transition-all shadow-lg shadow-amber-500/20 active:scale-95 flex items-center justify-center gap-2 cursor-pointer mt-2"
           >
             {loading ? (
               <span className="inline-block animate-pulse">Authenticating...</span>
             ) : isRegister ? (
               <span>Create Account</span>
             ) : (
-              <span>Sign In as {role.toUpperCase()}</span>
+              <span>Sign In</span>
             )}
           </button>
         </form>
 
-        {/* Quick Demo Helper Hint */}
-        <div className="mt-3 bg-zinc-950/60 border border-zinc-800/80 rounded-xl p-2.5 flex items-center justify-between text-xs font-mono text-zinc-400">
-          <div className="flex items-center gap-2">
-            <KeyRound className="w-3.5 h-3.5 text-amber-500" />
-            <span>Admin Email:</span>
-          </div>
-          <button
-            type="button"
-            onClick={() => {
-              setRole('admin');
-              setEmail('zaidenyuri26@gmail.com');
-              setError(null);
-            }}
-            className="text-amber-400 hover:underline font-bold"
-          >
-            zaidenyuri26@gmail.com
-          </button>
-        </div>
-
         {/* Switch Register/Login */}
-        <div className="mt-4 pt-4 border-t border-zinc-800 text-center">
+        <div className="mt-5 pt-4 border-t border-zinc-800 text-center">
           <button
             type="button"
             onClick={() => { 

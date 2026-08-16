@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { User, ShoppingBag, Car, Shield, X, MapPin, Phone, CheckCircle2, History, Settings, ExternalLink, Plus } from 'lucide-react';
+import { User, ShoppingBag, Car, Shield, X, MapPin, Phone, CheckCircle2, History, Settings, ExternalLink, Plus, Navigation, Radio, Truck } from 'lucide-react';
 import { UserProfile, Order, Product } from '../types';
-import { fetchOrders, saveUserProfile } from '../lib/dbService';
+import { fetchOrders, saveUserProfile, subscribeUserOrders } from '../lib/dbService';
 import { useToast } from '../context/ToastContext';
+import { OrderTracker } from './OrderTracker';
 
 interface CustomerDashboardProps {
   onClose: () => void;
@@ -18,8 +19,9 @@ export const CustomerDashboard: React.FC<CustomerDashboardProps> = ({
   products = []
 }) => {
   const { toast } = useToast();
-  const [activeTab, setActiveTab] = useState<'orders' | 'garage' | 'profile'>('orders');
+  const [activeTab, setActiveTab] = useState<'tracking' | 'orders' | 'garage' | 'profile'>('tracking');
   const [orders, setOrders] = useState<Order[]>([]);
+  const [selectedTrackOrderId, setSelectedTrackOrderId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [reorderSuccess, setReorderSuccess] = useState<string | null>(null);
 
@@ -38,20 +40,24 @@ export const CustomerDashboard: React.FC<CustomerDashboardProps> = ({
   const [savedSuccess, setSavedSuccess] = useState(false);
 
   useEffect(() => {
-    loadUserData();
-  }, [user.uid]);
-
-  const loadUserData = async () => {
+    if (!user.uid) return;
     setLoading(true);
-    try {
-      const oData = await fetchOrders(user.uid);
-      setOrders(oData);
-    } catch (err) {
-      console.error('Failed to load user data:', err);
-    } finally {
-      setLoading(false);
-    }
-  };
+
+    // Subscribe to real-time order updates for this user
+    const unsub = subscribeUserOrders(
+      user.uid,
+      (liveOrders) => {
+        setOrders(liveOrders);
+        setLoading(false);
+      },
+      (err) => {
+        console.error('Failed to subscribe to user orders:', err);
+        setLoading(false);
+      }
+    );
+
+    return () => unsub();
+  }, [user.uid]);
 
   const handleOrderAgain = (productId: string) => {
     const product = products.find(p => p.id === productId);
@@ -60,6 +66,11 @@ export const CustomerDashboard: React.FC<CustomerDashboardProps> = ({
       setReorderSuccess(productId);
       setTimeout(() => setReorderSuccess(null), 2000);
     }
+  };
+
+  const handleTrackSingleOrder = (orderId: string) => {
+    setSelectedTrackOrderId(orderId);
+    setActiveTab('tracking');
   };
 
   const handleSaveProfile = async (e: React.FormEvent) => {
@@ -149,6 +160,25 @@ export const CustomerDashboard: React.FC<CustomerDashboardProps> = ({
                   </span>
                 </div>
               </div>
+
+              {/* Quick Live Telemetry Indicator */}
+              <div 
+                onClick={() => setActiveTab('tracking')}
+                className="p-3 bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/30 rounded-xl cursor-pointer transition-all space-y-1 group"
+              >
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-1.5 text-[10px] font-mono font-bold text-amber-400 uppercase">
+                    <Radio className="w-3 h-3 animate-pulse" />
+                    <span>Live GPS Telemetry</span>
+                  </div>
+                  <span className="w-1.5 h-1.5 bg-emerald-400 rounded-full animate-ping" />
+                </div>
+                <p className="text-[10px] text-zinc-400 font-mono group-hover:text-zinc-200 transition-colors">
+                  {orders.filter(o => o.status !== 'delivered' && o.status !== 'cancelled').length > 0
+                    ? `${orders.filter(o => o.status !== 'delivered' && o.status !== 'cancelled').length} active builds in pipeline`
+                    : 'Real-time order & bay status active'}
+                </p>
+              </div>
             </div>
           </div>
 
@@ -163,6 +193,18 @@ export const CustomerDashboard: React.FC<CustomerDashboardProps> = ({
         <div className="flex-1 p-8 md:p-10 bg-zinc-900 relative">
           {/* Navigation Tabs */}
           <div className="flex items-center gap-6 font-mono text-sm font-bold border-b border-zinc-800 pb-4 mb-8 overflow-x-auto no-scrollbar">
+            <button
+              onClick={() => setActiveTab('tracking')}
+              className={`flex items-center gap-2 transition-all relative py-2 ${
+                activeTab === 'tracking' ? 'text-amber-500' : 'text-zinc-500 hover:text-zinc-300'
+              }`}
+            >
+              <Navigation className="w-4 h-4" />
+              <span>LIVE TRACKER</span>
+              <span className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse" />
+              {activeTab === 'tracking' && <div className="absolute bottom-[-17px] left-0 right-0 h-1 bg-amber-500 rounded-t-full shadow-[0_-4px_10px_rgba(245,158,11,0.5)]" />}
+            </button>
+
             <button
               onClick={() => setActiveTab('orders')}
               className={`flex items-center gap-2 transition-all relative py-2 ${
@@ -198,6 +240,15 @@ export const CustomerDashboard: React.FC<CustomerDashboardProps> = ({
           </div>
 
           <div className="max-h-[calc(100vh-350px)] overflow-y-auto no-scrollbar pr-2">
+            {/* TAB 0: REAL-TIME TRACKING */}
+            {activeTab === 'tracking' && (
+              <OrderTracker
+                user={user}
+                initialOrderId={selectedTrackOrderId}
+                onSelectOrderAgain={handleOrderAgain}
+              />
+            )}
+
             {/* TAB 1: ORDERS */}
             {activeTab === 'orders' && (
               <div className="space-y-6">
@@ -290,7 +341,7 @@ export const CustomerDashboard: React.FC<CustomerDashboardProps> = ({
                             )}
                           </div>
 
-                          {/* Payment Details Box for Customer */}
+                          {/* Payment Details Box & Live Tracking Button for Customer */}
                           <div className="p-3 bg-zinc-900/60 rounded-xl border border-zinc-800/80 flex flex-wrap items-center justify-between gap-3 text-xs font-mono">
                             <div className="flex items-center gap-2">
                               <span className="text-zinc-500 uppercase text-[11px]">Payment:</span>
@@ -312,8 +363,7 @@ export const CustomerDashboard: React.FC<CustomerDashboardProps> = ({
                               )}
                             </div>
 
-                            <div className="flex items-center gap-1.5">
-                              <span className="text-zinc-500 uppercase text-[11px]">Verification:</span>
+                            <div className="flex items-center gap-3">
                               <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${
                                 o.paymentStatus === 'verified' || o.paymentStatus === 'paid'
                                   ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
@@ -321,11 +371,19 @@ export const CustomerDashboard: React.FC<CustomerDashboardProps> = ({
                                   ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30'
                                   : 'bg-zinc-800 text-zinc-400'
                               }`}>
-                                {o.paymentStatus === 'verified' ? '✓ Payment Verified' :
+                                {o.paymentStatus === 'verified' ? '✓ Verified' :
                                  o.paymentStatus === 'paid' ? '✓ Paid' :
-                                 o.paymentStatus === 'pending_verification' ? '⏳ Verification in Progress' :
-                                 o.paymentStatus === 'failed' ? '✗ Invalid Reference' : 'Unpaid (COD)'}
+                                 o.paymentStatus === 'pending_verification' ? '⏳ Verifying' :
+                                 o.paymentStatus === 'failed' ? '✗ Failed' : 'COD'}
                               </span>
+
+                              <button
+                                onClick={() => handleTrackSingleOrder(o.id)}
+                                className="flex items-center gap-1.5 bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 border border-amber-500/30 px-2.5 py-1 rounded-lg text-[11px] font-mono font-bold uppercase transition-all"
+                              >
+                                <Navigation className="w-3 h-3" />
+                                <span>Track Live</span>
+                              </button>
                             </div>
                           </div>
                         </div>

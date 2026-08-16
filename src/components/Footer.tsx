@@ -122,7 +122,7 @@ export const Footer: React.FC<FooterProps> = ({ onOpenAuth, onSelectCategory, si
                 className="inline-flex items-center gap-1.5 text-zinc-300 hover:text-amber-400 font-mono text-[12px] border-b border-zinc-700 pb-0.5 font-bold"
               >
                 <Shield className="w-3.5 h-3.5 text-amber-500" />
-                <span>Customer & Admin Portal Login</span>
+                <span>Account & Portal Sign In</span>
               </button>
             </div>
           </div>

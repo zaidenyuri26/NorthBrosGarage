@@ -12,7 +12,9 @@ import {
   orderBy,
   serverTimestamp,
   runTransaction,
-  getDocFromServer
+  getDocFromServer,
+  onSnapshot,
+  Unsubscribe
 } from 'firebase/firestore';
 import { db, auth } from './firebase';
 import {
@@ -340,6 +342,35 @@ export async function fetchBookings(userId?: string): Promise<ServiceBooking[]> 
   }
 }
 
+/**
+ * Real-time listener for user service bookings in Firestore
+ */
+export function subscribeUserBookings(
+  userId: string,
+  onUpdate: (bookings: ServiceBooking[]) => void,
+  onError?: (error: Error) => void
+): Unsubscribe {
+  try {
+    const q = query(collection(db, BOOKINGS_COLLECTION), where('userId', '==', userId));
+    return onSnapshot(
+      q,
+      (snapshot) => {
+        const bookings = snapshot.docs.map(d => ({ id: d.id, ...d.data() })) as ServiceBooking[];
+        // Sort descending by createdAt
+        bookings.sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime());
+        onUpdate(bookings);
+      },
+      (err) => {
+        console.error('Real-time bookings subscription error:', err);
+        if (onError) onError(err);
+      }
+    );
+  } catch (err: any) {
+    console.error('Failed to attach bookings listener:', err);
+    return () => {};
+  }
+}
+
 export async function updateBookingStatus(bookingId: string, status: BookingStatus): Promise<void> {
   const path = `${BOOKINGS_COLLECTION}/${bookingId}`;
   try {
@@ -351,55 +382,128 @@ export async function updateBookingStatus(bookingId: string, status: BookingStat
 }
 
 /**
+ * Checks if a transaction reference number has already been submitted for an existing order
+ */
+export async function checkPaymentReferenceUnique(reference: string): Promise<{ isUnique: boolean; existingOrder?: Order }> {
+  const cleanRef = (reference || '').trim().replace(/[\s-]/g, '').toUpperCase();
+  if (!cleanRef) return { isUnique: true };
+
+  try {
+    const q = query(collection(db, ORDERS_COLLECTION), where('paymentReference', '==', cleanRef));
+    const snap = await getDocs(q);
+    if (!snap.empty) {
+      const existingDoc = snap.docs[0];
+      return { isUnique: false, existingOrder: { id: existingDoc.id, ...existingDoc.data() } as Order };
+    }
+    return { isUnique: true };
+  } catch (err) {
+    console.error('Reference lookup error:', err);
+    return { isUnique: true };
+  }
+}
+
+/**
  * Orders API (Reads/Writes directly to Firestore 'orders' collection)
+ * Enforces strict anti-fraud checks, price re-validation, and reference uniqueness.
  */
 export async function createOrder(orderData: Omit<Order, 'id' | 'createdAt' | 'status'>): Promise<Order> {
   const orderId = doc(collection(db, ORDERS_COLLECTION)).id;
-  const newOrder = {
-    ...orderData,
-    status: 'pending' as OrderStatus,
-    createdAt: new Date().toISOString()
-  };
+  const cleanRef = (orderData.paymentReference || '').trim().replace(/[\s-]/g, '').toUpperCase();
+
+  // 1. Anti-Fraud Check: Disallow reusing existing transaction reference numbers
+  if (orderData.paymentMethod !== 'cod' && cleanRef) {
+    const refCheck = await checkPaymentReferenceUnique(cleanRef);
+    if (!refCheck.isUnique) {
+      throw new Error(
+        `Transaction Reference #${cleanRef} has already been submitted for another order. Reusing payment receipts is prohibited.`
+      );
+    }
+  }
+
+  let finalCalculatedTotal = 0;
+  const validatedItems: Order['items'] = [];
 
   try {
     await runTransaction(db, async (transaction) => {
-      // 1. Check and collect all product docs
+      // 2. Fetch and validate all product docs from database
       const productRefs = orderData.items.map(item => doc(db, PRODUCTS_COLLECTION, item.productId));
       const productSnaps = await Promise.all(productRefs.map(ref => transaction.get(ref)));
 
-      // 2. Validate stock for each item
+      let calculatedSubtotal = 0;
+      let calculatedShipping = 0;
+
       for (let i = 0; i < productSnaps.length; i++) {
         const snap = productSnaps[i];
         const item = orderData.items[i];
         
         if (!snap.exists()) {
-          throw new Error(`Product ${item.productId} not found.`);
+          throw new Error(`Product ${item.productId} not found in catalog.`);
         }
 
         const product = snap.data() as Product;
         const currentStock = product.stock || 0;
 
         if (currentStock < item.quantity) {
-          throw new Error(`Insufficient stock for ${product.name}. Requested: ${item.quantity}, Available: ${currentStock}`);
+          throw new Error(`Insufficient stock for ${product.name}. Requested: ${item.quantity}, Available in stock: ${currentStock}`);
         }
 
-        // 3. Queue the decrement
+        // Re-calculate price and shipping fee directly from DB to prevent client-side tampering
+        const actualPrice = typeof product.price === 'number' ? product.price : parseFloat(product.price as any) || 0;
+        const actualShipping = typeof product.shippingFee === 'number' ? product.shippingFee : parseFloat(product.shippingFee as any) || 0;
+
+        calculatedSubtotal += actualPrice * item.quantity;
+        calculatedShipping += actualShipping * item.quantity;
+
+        validatedItems.push({
+          productId: item.productId,
+          productName: product.name,
+          brand: product.brand,
+          price: actualPrice,
+          quantity: item.quantity,
+          image: product.image
+        });
+
+        // Decrement stock in catalog
         transaction.update(productRefs[i], {
           stock: currentStock - item.quantity,
           updatedAt: new Date().toISOString()
         });
       }
 
-      // 4. Create the order record
+      finalCalculatedTotal = calculatedSubtotal + calculatedShipping;
+
+      // 3. Force safe payment status (customers cannot pass 'verified' or 'paid' on creation)
+      const safePaymentStatus = orderData.paymentMethod === 'cod' ? 'unpaid' : 'pending_verification';
+
+      const newOrderPayload: Omit<Order, 'id'> = {
+        ...orderData,
+        items: validatedItems,
+        totalAmount: finalCalculatedTotal,
+        paymentReference: cleanRef || undefined,
+        paymentStatus: safePaymentStatus,
+        status: 'pending' as OrderStatus,
+        createdAt: new Date().toISOString()
+      };
+
+      // 4. Write order record
       const orderRef = doc(db, ORDERS_COLLECTION, orderId);
-      transaction.set(orderRef, newOrder);
+      transaction.set(orderRef, newOrderPayload);
     });
   } catch (err) {
     handleFirestoreError(err, OperationType.WRITE, ORDERS_COLLECTION);
     throw err;
   }
 
-  return { id: orderId, ...newOrder };
+  return {
+    id: orderId,
+    ...orderData,
+    items: validatedItems,
+    totalAmount: finalCalculatedTotal,
+    paymentReference: cleanRef || undefined,
+    paymentStatus: orderData.paymentMethod === 'cod' ? 'unpaid' : 'pending_verification',
+    status: 'pending',
+    createdAt: new Date().toISOString()
+  };
 }
 
 export async function fetchOrders(userId?: string): Promise<Order[]> {
@@ -415,6 +519,65 @@ export async function fetchOrders(userId?: string): Promise<Order[]> {
   } catch (err) {
     handleFirestoreError(err, OperationType.LIST, ORDERS_COLLECTION);
     return [];
+  }
+}
+
+/**
+ * Real-time listener for user orders in Firestore based on user UID
+ */
+export function subscribeUserOrders(
+  userId: string,
+  onUpdate: (orders: Order[]) => void,
+  onError?: (error: Error) => void
+): Unsubscribe {
+  try {
+    const q = query(collection(db, ORDERS_COLLECTION), where('userId', '==', userId));
+    return onSnapshot(
+      q,
+      (snapshot) => {
+        const orders = snapshot.docs.map(d => ({ id: d.id, ...d.data() })) as Order[];
+        // Sort descending by creation date
+        orders.sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime());
+        onUpdate(orders);
+      },
+      (err) => {
+        console.error('Real-time orders subscription error:', err);
+        if (onError) onError(err);
+      }
+    );
+  } catch (err: any) {
+    console.error('Failed to attach orders listener:', err);
+    return () => {};
+  }
+}
+
+/**
+ * Real-time listener for a single order document
+ */
+export function subscribeSingleOrder(
+  orderId: string,
+  onUpdate: (order: Order | null) => void,
+  onError?: (error: Error) => void
+): Unsubscribe {
+  try {
+    const docRef = doc(db, ORDERS_COLLECTION, orderId);
+    return onSnapshot(
+      docRef,
+      (docSnap) => {
+        if (docSnap.exists()) {
+          onUpdate({ id: docSnap.id, ...docSnap.data() } as Order);
+        } else {
+          onUpdate(null);
+        }
+      },
+      (err) => {
+        console.error('Real-time single order subscription error:', err);
+        if (onError) onError(err);
+      }
+    );
+  } catch (err: any) {
+    console.error('Failed to attach single order listener:', err);
+    return () => {};
   }
 }
 

@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
-import { Car, ChevronDown, CheckCircle2, RotateCcw } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Car, ChevronDown, CheckCircle2, RotateCcw, Cloud, RefreshCw } from 'lucide-react';
+import { UserProfile } from '../types';
 
 export interface SelectedVehicle {
   year: string;
@@ -11,6 +12,9 @@ interface FitmentSelectorProps {
   selectedVehicle: SelectedVehicle | null;
   onSelectVehicle: (vehicle: SelectedVehicle | null) => void;
   onFilterFitment: (modelKeyword: string) => void;
+  user?: UserProfile | null;
+  isSaving?: boolean;
+  saveSuccess?: boolean;
 }
 
 const VEHICLE_DATA: Record<string, Record<string, string[]>> = {
@@ -51,10 +55,26 @@ export const FitmentSelector: React.FC<FitmentSelectorProps> = ({
   selectedVehicle,
   onSelectVehicle,
   onFilterFitment,
+  user,
+  isSaving,
+  saveSuccess
 }) => {
   const [year, setYear] = useState<string>(selectedVehicle?.year || '');
   const [make, setMake] = useState<string>(selectedVehicle?.make || '');
   const [model, setModel] = useState<string>(selectedVehicle?.model || '');
+
+  // Keep dropdowns in sync if selectedVehicle changes from external state / profile load
+  useEffect(() => {
+    if (selectedVehicle) {
+      setYear(selectedVehicle.year || '');
+      setMake(selectedVehicle.make || '');
+      setModel(selectedVehicle.model || '');
+    } else {
+      setYear('');
+      setMake('');
+      setModel('');
+    }
+  }, [selectedVehicle]);
 
   const availableMakes = Object.keys(VEHICLE_DATA);
   const availableModels = make && VEHICLE_DATA[make] ? Object.keys(VEHICLE_DATA[make]) : [];
@@ -81,13 +101,13 @@ export const FitmentSelector: React.FC<FitmentSelectorProps> = ({
 
       <div className="relative z-10 space-y-4">
         {/* Header */}
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between flex-wrap gap-2">
           <div className="flex items-center gap-2.5">
             <div className="p-2 bg-amber-500/10 border border-amber-500/30 rounded-xl text-amber-500">
               <Car className="w-5 h-5" />
             </div>
             <div>
-              <h3 className="font-mono font-black text-base uppercase text-white tracking-wider flex items-center gap-2">
+              <h3 className="font-mono font-black text-base uppercase text-white tracking-wider flex items-center flex-wrap gap-2">
                 <span>SELECT YOUR VEHICLE</span>
                 <span className="text-[11px] bg-amber-500 text-zinc-950 px-2 py-0.5 rounded-full font-black">100% FITMENT GUARANTEE</span>
               </h3>
@@ -95,14 +115,36 @@ export const FitmentSelector: React.FC<FitmentSelectorProps> = ({
             </div>
           </div>
 
-          {selectedVehicle && (
-            <button
-              onClick={handleReset}
-              className="flex items-center gap-1.5 text-sm font-mono text-zinc-400 hover:text-amber-400 transition-colors"
-            >
-              <RotateCcw className="w-3.5 h-3.5" /> Reset Vehicle
-            </button>
-          )}
+          <div className="flex items-center gap-3">
+            {/* Persistence Status Badge */}
+            {isSaving && (
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-amber-500/10 border border-amber-500/30 rounded-lg text-amber-400 text-xs font-mono font-bold animate-pulse">
+                <RefreshCw className="w-3 h-3 animate-spin" />
+                <span>Saving to Firestore...</span>
+              </span>
+            )}
+            {saveSuccess && !isSaving && (
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-emerald-500/10 border border-emerald-500/30 rounded-lg text-emerald-400 text-xs font-mono font-bold">
+                <CheckCircle2 className="w-3 h-3 text-emerald-400" />
+                <span>Saved to Garage Profile</span>
+              </span>
+            )}
+            {user && selectedVehicle && !isSaving && !saveSuccess && (
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-zinc-950 border border-zinc-800 rounded-lg text-zinc-400 text-[11px] font-mono">
+                <Cloud className="w-3 h-3 text-amber-500" />
+                <span>Synced to Profile</span>
+              </span>
+            )}
+
+            {selectedVehicle && (
+              <button
+                onClick={handleReset}
+                className="flex items-center gap-1.5 text-sm font-mono text-zinc-400 hover:text-amber-400 transition-colors"
+              >
+                <RotateCcw className="w-3.5 h-3.5" /> Reset Vehicle
+              </button>
+            )}
+          </div>
         </div>
 
         {/* Selected Active Vehicle Bar */}

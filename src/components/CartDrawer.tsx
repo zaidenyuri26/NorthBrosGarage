@@ -20,7 +20,7 @@ import {
   ZoomIn
 } from 'lucide-react';
 import { CartItem, UserProfile, SiteSettings, PaymentMethodType } from '../types';
-import { createOrder, saveUserProfile, DEFAULT_SITE_SETTINGS } from '../lib/dbService';
+import { createOrder, saveUserProfile, checkPaymentReferenceUnique, DEFAULT_SITE_SETTINGS } from '../lib/dbService';
 import { useToast } from '../context/ToastContext';
 
 interface CartDrawerProps {
@@ -67,9 +67,106 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
   const [createdOrderId, setCreatedOrderId] = useState<string | null>(null);
   const [createdOrderRef, setCreatedOrderRef] = useState<string | null>(null);
   const [saveProfile, setSaveProfile] = useState(true);
+  const [codAcknowledged, setCodAcknowledged] = useState(false);
 
   const [qrMode, setQrMode] = useState<'dynamic' | 'static'>('dynamic');
   const [zoomedQr, setZoomedQr] = useState<{ url: string; title: string; subtitle?: string } | null>(null);
+
+  /**
+   * Real Payment Reference Validator
+   * Strictly prevents customers from passing dummy/fake/spam numbers without completing real transfer.
+   */
+  const validateReference = (method: PaymentMethodType, refStr: string): { isValid: boolean; message: string; severity?: 'error' | 'success' | 'warn' } => {
+    if (method === 'cod') {
+      return { isValid: true, message: 'Cash on delivery selected.', severity: 'success' };
+    }
+
+    const clean = refStr.trim().replace(/[\s-]/g, '').toUpperCase();
+
+    if (!clean) {
+      return { 
+        isValid: false, 
+        message: `Transaction Reference Number is required for ${method === 'gcash' ? 'GCash' : method === 'paymaya' ? 'Maya' : 'Bank Transfer'}.`,
+        severity: 'error'
+      };
+    }
+
+    // Ban known spam, dummy, and test strings or common placeholder words
+    const bannedDummyPatterns = [
+      'TEST', 'DEMO', 'DUMMY', 'FAKE', 'NONE', 'NOTHING', 'NULL', 'NA', 'N/A', 'ASDF', 'QWERTY', 'SAMPLE',
+      '12345678', '123456789', '1234567890', '0123456789', '987654321', '9876543210', '123412341234',
+      'GCASH123', 'MAYA123', 'REF123', 'PROOFOFPAYMENT', 'RECEIPT123', 'TRANSACTION123'
+    ];
+    if (bannedDummyPatterns.some(p => clean.includes(p))) {
+      return { 
+        isValid: false, 
+        message: 'Invalid or test reference number detected. Please enter your genuine transaction reference number.',
+        severity: 'error'
+      };
+    }
+
+    // Ban repeated single digits/chars (e.g. 00000000, 11111111) or simple sequential patterns
+    if (/^(.)\1+$/.test(clean) || /^(01234|12345|23456|34567|45678|56789|67890)+$/.test(clean)) {
+      return { 
+        isValid: false, 
+        message: 'Repeated or sequential test patterns are prohibited. Enter the actual reference number.',
+        severity: 'error'
+      };
+    }
+
+    if (method === 'gcash') {
+      if (clean.length < 8 || clean.length > 24) {
+        return { 
+          isValid: false, 
+          message: `GCash Reference must be 8–24 characters (Entered: ${clean.length}). Check the top of your GCash receipt.`,
+          severity: 'error'
+        };
+      }
+      return { isValid: true, message: '✓ Valid GCash transaction reference format.', severity: 'success' };
+    }
+
+    if (method === 'paymaya') {
+      if (clean.length < 8 || clean.length > 28) {
+        return { 
+          isValid: false, 
+          message: `Maya Reference must be 8–28 characters (Entered: ${clean.length}). Check your Maya confirmation screen.`,
+          severity: 'error'
+        };
+      }
+      return { isValid: true, message: '✓ Valid Maya transaction reference format.', severity: 'success' };
+    }
+
+    if (method === 'bank_transfer') {
+      if (clean.length < 6 || clean.length > 32) {
+        return { 
+          isValid: false, 
+          message: `Bank trace / confirmation number must be 6–32 characters (Entered: ${clean.length}).`,
+          severity: 'error'
+        };
+      }
+      return { isValid: true, message: '✓ Valid bank trace confirmation format.', severity: 'success' };
+    }
+
+    return { isValid: clean.length >= 6, message: '✓ Reference format accepted.', severity: 'success' };
+  };
+
+  const currentPaymentValidation = validateReference(paymentMethod, paymentReference);
+  const isPaymentReady = paymentMethod === 'cod' ? codAcknowledged : currentPaymentValidation.isValid;
+
+  /**
+   * Pastes reference from device clipboard
+   */
+  const handlePasteClipboard = async () => {
+    try {
+      const text = await navigator.clipboard.readText();
+      if (text) {
+        setPaymentReference(text.trim());
+        toast.success('Pasted Reference', `Pasted: ${text.trim()}`);
+      }
+    } catch {
+      toast.warning('Clipboard Access', 'Please paste your reference number into the field.');
+    }
+  };
 
   /**
    * Constructs an EMVCo QR Ph compliant payload string and generates a dynamic QR code
@@ -180,14 +277,29 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
       return;
     }
 
-    // Require reference number for GCash / Maya / Bank Transfer
-    if ((paymentMethod === 'gcash' || paymentMethod === 'paymaya' || paymentMethod === 'bank_transfer') && !paymentReference.trim()) {
-      toast.warning(
-        'Reference Number Required',
-        `Please enter the transaction reference number from your ${
-          paymentMethod === 'gcash' ? 'GCash' : paymentMethod === 'paymaya' ? 'Maya' : 'Bank'
-        } receipt.`
-      );
+    // Require strict valid real payment verification for electronic methods
+    if (paymentMethod === 'gcash' || paymentMethod === 'paymaya' || paymentMethod === 'bank_transfer') {
+      const validation = validateReference(paymentMethod, paymentReference);
+      if (!validation.isValid) {
+        toast.error('Payment Verification Required', validation.message);
+        return;
+      }
+
+      // Check if this reference number has already been submitted for another order
+      const cleanRef = paymentReference.trim().replace(/[\s-]/g, '').toUpperCase();
+      const refCheck = await checkPaymentReferenceUnique(cleanRef);
+      if (!refCheck.isUnique) {
+        toast.error(
+          'Duplicate Reference Number',
+          `Reference #${cleanRef} was already used for order #${refCheck.existingOrder?.id.slice(0, 8).toUpperCase()}. Reusing payment receipts is prohibited.`
+        );
+        return;
+      }
+    }
+
+    // Require COD confirmation checkbox if cash on delivery is chosen
+    if (paymentMethod === 'cod' && !codAcknowledged) {
+      toast.warning('Confirmation Required', 'Please check the box confirming you will pay the rider upon delivery.');
       return;
     }
 
@@ -633,28 +745,73 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                         {gcashInstructions}
                       </p>
 
-                      {/* Required Reference Number Input */}
-                      <div className="space-y-1.5 pt-1">
-                        <label className="block text-xs font-mono font-bold text-blue-300 uppercase">
-                          GCash Transaction / Reference Number *
-                        </label>
-                        <input
-                          type="text"
-                          required
-                          placeholder="e.g. 1002 9384 7561"
-                          value={paymentReference}
-                          onChange={(e) => setPaymentReference(e.target.value)}
-                          className="w-full bg-zinc-900 border border-blue-500/50 rounded-xl p-2.5 text-white font-mono text-sm tracking-wider focus:border-blue-400 focus:outline-none"
-                        />
-                        <span className="text-[10px] text-zinc-500 font-mono block">
-                          Found at the top of your GCash receipt right after sending.
-                        </span>
+                      {/* Required Reference Number Input with Real-time Anti-Fraud Verification */}
+                      <div className="space-y-2 pt-1">
+                        <div className="flex items-center justify-between">
+                          <label className="block text-xs font-mono font-bold text-blue-300 uppercase">
+                            GCash Reference / Transaction No. *
+                          </label>
+                          <button
+                            type="button"
+                            onClick={handlePasteClipboard}
+                            className="text-[10px] font-mono text-blue-400 hover:text-blue-300 bg-blue-950/60 hover:bg-blue-900/80 px-2 py-0.5 rounded border border-blue-800/60 flex items-center gap-1 transition-colors"
+                          >
+                            <Copy className="w-3 h-3" /> Paste from App
+                          </button>
+                        </div>
+
+                        <div className="relative">
+                          <input
+                            type="text"
+                            required
+                            placeholder="e.g. 1002 9384 7561"
+                            value={paymentReference}
+                            onChange={(e) => setPaymentReference(e.target.value)}
+                            className={`w-full bg-zinc-900 border rounded-xl p-2.5 text-white font-mono text-sm tracking-wider focus:outline-none transition-colors ${
+                              !paymentReference.trim()
+                                ? 'border-zinc-700 focus:border-blue-400'
+                                : currentPaymentValidation.isValid
+                                ? 'border-emerald-500 bg-emerald-950/10 focus:border-emerald-400'
+                                : 'border-red-500 bg-red-950/10 focus:border-red-400'
+                            }`}
+                          />
+                          {paymentReference.trim() && (
+                            <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                              {currentPaymentValidation.isValid ? (
+                                <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+                              ) : (
+                                <AlertCircle className="w-4 h-4 text-red-400" />
+                              )}
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Real-time Payment Validation Badge */}
+                        <div className={`p-2 rounded-lg border text-[11px] font-mono flex items-start gap-1.5 ${
+                          !paymentReference.trim()
+                            ? 'bg-zinc-900/90 border-zinc-800 text-zinc-400'
+                            : currentPaymentValidation.isValid
+                            ? 'bg-emerald-950/50 border-emerald-500/40 text-emerald-300'
+                            : 'bg-red-950/50 border-red-500/40 text-red-300'
+                        }`}>
+                          <ShieldCheck className={`w-3.5 h-3.5 shrink-0 mt-0.5 ${
+                            currentPaymentValidation.isValid ? 'text-emerald-400' : 'text-zinc-500'
+                          }`} />
+                          <div className="space-y-0.5">
+                            <p className="font-semibold">{currentPaymentValidation.message}</p>
+                            {!paymentReference.trim() && (
+                              <p className="text-[10px] text-zinc-500">
+                                Open your GCash app &gt; Activity &gt; Copy 10–13 digit Reference Number.
+                              </p>
+                            )}
+                          </div>
+                        </div>
                       </div>
 
                       {/* Optional Receipt Screenshot */}
                       <div className="space-y-1.5">
                         <label className="block text-[11px] font-mono text-zinc-400 uppercase">
-                          Optional: Attach Receipt Screenshot
+                          Optional Proof: Attach GCash Receipt Screenshot
                         </label>
                         <div className="flex items-center gap-2">
                           <label className="cursor-pointer flex items-center gap-2 bg-zinc-900 hover:bg-zinc-800 text-zinc-300 px-3 py-2 rounded-xl border border-zinc-800 text-xs font-mono transition-colors">
@@ -813,28 +970,73 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                         {paymayaInstructions}
                       </p>
 
-                      {/* Required Reference Number Input */}
-                      <div className="space-y-1.5 pt-1">
-                        <label className="block text-xs font-mono font-bold text-emerald-300 uppercase">
-                          Maya Reference / Transaction ID *
-                        </label>
-                        <input
-                          type="text"
-                          required
-                          placeholder="e.g. MP-84729104 or 8392019482"
-                          value={paymentReference}
-                          onChange={(e) => setPaymentReference(e.target.value)}
-                          className="w-full bg-zinc-900 border border-emerald-500/50 rounded-xl p-2.5 text-white font-mono text-sm tracking-wider focus:border-emerald-400 focus:outline-none"
-                        />
-                        <span className="text-[10px] text-zinc-500 font-mono block">
-                          Generated right after completing payment on your Maya app.
-                        </span>
+                      {/* Required Reference Number Input with Real-time Anti-Fraud Verification */}
+                      <div className="space-y-2 pt-1">
+                        <div className="flex items-center justify-between">
+                          <label className="block text-xs font-mono font-bold text-emerald-300 uppercase">
+                            Maya Reference / Transaction ID *
+                          </label>
+                          <button
+                            type="button"
+                            onClick={handlePasteClipboard}
+                            className="text-[10px] font-mono text-emerald-400 hover:text-emerald-300 bg-emerald-950/60 hover:bg-emerald-900/80 px-2 py-0.5 rounded border border-emerald-800/60 flex items-center gap-1 transition-colors"
+                          >
+                            <Copy className="w-3 h-3" /> Paste from App
+                          </button>
+                        </div>
+
+                        <div className="relative">
+                          <input
+                            type="text"
+                            required
+                            placeholder="e.g. MP-84729104 or 8392019482"
+                            value={paymentReference}
+                            onChange={(e) => setPaymentReference(e.target.value)}
+                            className={`w-full bg-zinc-900 border rounded-xl p-2.5 text-white font-mono text-sm tracking-wider focus:outline-none transition-colors ${
+                              !paymentReference.trim()
+                                ? 'border-zinc-700 focus:border-emerald-400'
+                                : currentPaymentValidation.isValid
+                                ? 'border-emerald-500 bg-emerald-950/10 focus:border-emerald-400'
+                                : 'border-red-500 bg-red-950/10 focus:border-red-400'
+                            }`}
+                          />
+                          {paymentReference.trim() && (
+                            <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                              {currentPaymentValidation.isValid ? (
+                                <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+                              ) : (
+                                <AlertCircle className="w-4 h-4 text-red-400" />
+                              )}
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Real-time Payment Validation Badge */}
+                        <div className={`p-2 rounded-lg border text-[11px] font-mono flex items-start gap-1.5 ${
+                          !paymentReference.trim()
+                            ? 'bg-zinc-900/90 border-zinc-800 text-zinc-400'
+                            : currentPaymentValidation.isValid
+                            ? 'bg-emerald-950/50 border-emerald-500/40 text-emerald-300'
+                            : 'bg-red-950/50 border-red-500/40 text-red-300'
+                        }`}>
+                          <ShieldCheck className={`w-3.5 h-3.5 shrink-0 mt-0.5 ${
+                            currentPaymentValidation.isValid ? 'text-emerald-400' : 'text-zinc-500'
+                          }`} />
+                          <div className="space-y-0.5">
+                            <p className="font-semibold">{currentPaymentValidation.message}</p>
+                            {!paymentReference.trim() && (
+                              <p className="text-[10px] text-zinc-500">
+                                Generated right after sending money on your Maya app.
+                              </p>
+                            )}
+                          </div>
+                        </div>
                       </div>
 
                       {/* Optional Receipt Screenshot */}
                       <div className="space-y-1.5">
                         <label className="block text-[11px] font-mono text-zinc-400 uppercase">
-                          Optional: Attach Receipt Screenshot
+                          Optional Proof: Attach Maya Receipt Screenshot
                         </label>
                         <div className="flex items-center gap-2">
                           <label className="cursor-pointer flex items-center gap-2 bg-zinc-900 hover:bg-zinc-800 text-zinc-300 px-3 py-2 rounded-xl border border-zinc-800 text-xs font-mono transition-colors">
@@ -913,34 +1115,83 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
 
                       <p className="text-[11px] text-zinc-400 italic">{bankInstructions}</p>
 
-                      <div className="space-y-1.5 pt-1">
-                        <label className="block text-xs font-mono font-bold text-purple-300 uppercase">
-                          Bank Trace / Reference Number *
-                        </label>
+                      <div className="space-y-2 pt-1">
+                        <div className="flex items-center justify-between">
+                          <label className="block text-xs font-mono font-bold text-purple-300 uppercase">
+                            Bank Trace / Reference Number *
+                          </label>
+                          <button
+                            type="button"
+                            onClick={handlePasteClipboard}
+                            className="text-[10px] font-mono text-purple-400 hover:text-purple-300 bg-purple-950/60 hover:bg-purple-900/80 px-2 py-0.5 rounded border border-purple-800/60 flex items-center gap-1 transition-colors"
+                          >
+                            <Copy className="w-3 h-3" /> Paste
+                          </button>
+                        </div>
+
                         <input
                           type="text"
                           required
                           placeholder="e.g. 2024081200192837"
                           value={paymentReference}
                           onChange={(e) => setPaymentReference(e.target.value)}
-                          className="w-full bg-zinc-900 border border-purple-500/50 rounded-xl p-2.5 text-white font-mono text-sm tracking-wider focus:border-purple-400 focus:outline-none"
+                          className={`w-full bg-zinc-900 border rounded-xl p-2.5 text-white font-mono text-sm tracking-wider focus:outline-none transition-colors ${
+                            !paymentReference.trim()
+                              ? 'border-zinc-700 focus:border-purple-400'
+                              : currentPaymentValidation.isValid
+                              ? 'border-emerald-500 bg-emerald-950/10 focus:border-emerald-400'
+                              : 'border-red-500 bg-red-950/10 focus:border-red-400'
+                          }`}
                         />
+
+                        {/* Real-time Payment Validation Badge */}
+                        <div className={`p-2 rounded-lg border text-[11px] font-mono flex items-start gap-1.5 ${
+                          !paymentReference.trim()
+                            ? 'bg-zinc-900/90 border-zinc-800 text-zinc-400'
+                            : currentPaymentValidation.isValid
+                            ? 'bg-emerald-950/50 border-emerald-500/40 text-emerald-300'
+                            : 'bg-red-950/50 border-red-500/40 text-red-300'
+                        }`}>
+                          <ShieldCheck className={`w-3.5 h-3.5 shrink-0 mt-0.5 ${
+                            currentPaymentValidation.isValid ? 'text-emerald-400' : 'text-zinc-500'
+                          }`} />
+                          <p className="font-semibold">{currentPaymentValidation.message}</p>
+                        </div>
                       </div>
                     </div>
                   )}
 
-                  {/* Cash On Delivery Box */}
+                  {/* Cash On Delivery Box with Mandatory Buyer Commitment */}
                   {paymentMethod === 'cod' && (
-                    <div className="bg-zinc-950 border border-amber-500/30 rounded-2xl p-4 space-y-2">
+                    <div className="bg-zinc-950 border border-amber-500/30 rounded-2xl p-4 space-y-3">
                       <div className="flex items-center gap-2 font-mono font-bold text-amber-400 text-xs">
                         <ShoppingBag className="w-4 h-4" />
                         <span>CASH ON DELIVERY (COD)</span>
                       </div>
-                      <p className="text-xs text-zinc-400 leading-relaxed">
-                        Pay upon delivery directly to our courier rider. Please ensure exact payment of <strong className="text-white font-mono">₱{totalAmount.toLocaleString()}</strong> is ready upon delivery.
+                      <p className="text-xs text-zinc-300 leading-relaxed">
+                        Pay upon delivery directly to our courier rider. Please ensure exact payment of <strong className="text-amber-400 font-mono">₱{totalAmount.toLocaleString()} PHP</strong> is ready when the parcel arrives.
                       </p>
+
+                      <label className="flex items-start gap-2.5 p-2.5 bg-zinc-900/90 border border-amber-500/40 rounded-xl cursor-pointer hover:bg-zinc-900 transition-colors">
+                        <input
+                          type="checkbox"
+                          required
+                          checked={codAcknowledged}
+                          onChange={(e) => setCodAcknowledged(e.target.checked)}
+                          className="w-4 h-4 accent-amber-500 rounded bg-zinc-950 border-zinc-700 mt-0.5 shrink-0"
+                        />
+                        <span className="text-xs text-zinc-200 font-mono leading-tight select-none">
+                          I acknowledge and guarantee that I will pay <strong className="text-amber-400">₱{totalAmount.toLocaleString()} PHP</strong> in cash directly upon courier arrival.
+                        </span>
+                      </label>
                     </div>
                   )}
+
+                  {/* Anti-Fraud Security Notice */}
+                  <div className="p-3 bg-zinc-950/80 border border-zinc-800/80 rounded-xl text-[10px] font-mono text-zinc-400 flex items-center gap-2">
+                    <ShieldCheck className="w-4 h-4 text-emerald-400 shrink-0" />
+                    <span>All payment reference numbers are automatically matched with merchant banking records prior to dispatch.</span>
+                  </div>
                 </div>
 
                 {user && (
@@ -1063,28 +1314,47 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
             )}
 
             {step === 'checkout' && (
-              <div className="flex gap-2">
-                <button
-                  type="button"
-                  onClick={() => setStep('cart')}
-                  className="w-1/3 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 font-bold py-3 px-3 rounded-xl text-xs uppercase transition-colors"
-                >
-                  Back
-                </button>
+              <div className="space-y-2">
+                {!isPaymentReady && (
+                  <div className="text-[11px] font-mono text-amber-400 bg-amber-950/40 border border-amber-500/30 px-3 py-1.5 rounded-lg flex items-center gap-1.5">
+                    <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                    <span>
+                      {paymentMethod === 'cod'
+                        ? 'Please check the Cash on Delivery payment agreement above.'
+                        : `Please enter your valid ${paymentMethod === 'gcash' ? 'GCash' : paymentMethod === 'paymaya' ? 'Maya' : 'Bank'} Reference Number.`}
+                    </span>
+                  </div>
+                )}
 
-                <button
-                  type="submit"
-                  form="checkout-form"
-                  disabled={loading}
-                  id="confirm-place-order-btn"
-                  className="flex-1 bg-amber-500 hover:bg-amber-400 text-zinc-950 font-black py-3 px-4 rounded-xl text-xs uppercase tracking-wider transition-all disabled:opacity-50 flex items-center justify-center gap-2 cursor-pointer"
-                >
-                  {loading ? (
-                    <span>Submitting Order...</span>
-                  ) : (
-                    <span>Place Order (₱{totalAmount.toLocaleString()})</span>
-                  )}
-                </button>
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setStep('cart')}
+                    className="w-1/3 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 font-bold py-3 px-3 rounded-xl text-xs uppercase transition-colors"
+                  >
+                    Back
+                  </button>
+
+                  <button
+                    type="submit"
+                    form="checkout-form"
+                    disabled={loading || !isPaymentReady}
+                    id="confirm-place-order-btn"
+                    className={`flex-1 font-black py-3 px-4 rounded-xl text-xs uppercase tracking-wider transition-all flex items-center justify-center gap-2 ${
+                      !isPaymentReady || loading
+                        ? 'bg-zinc-800 text-zinc-500 cursor-not-allowed opacity-60'
+                        : 'bg-amber-500 hover:bg-amber-400 text-zinc-950 shadow-lg shadow-amber-500/20 cursor-pointer'
+                    }`}
+                  >
+                    {loading ? (
+                      <span>Verifying & Placing...</span>
+                    ) : !isPaymentReady ? (
+                      <span>Complete Payment Info</span>
+                    ) : (
+                      <span>Place Order (₱{totalAmount.toLocaleString()})</span>
+                    )}
+                  </button>
+                </div>
               </div>
             )}
 

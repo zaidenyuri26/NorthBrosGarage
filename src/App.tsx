@@ -23,6 +23,7 @@ import { Hero } from './components/Hero';
 import { JdmGallery } from './components/JdmGallery';
 import { GarageHighlights } from './components/GarageHighlights';
 import { FitmentSelector, SelectedVehicle } from './components/FitmentSelector';
+import { useVehicleFitment } from './hooks/useVehicleFitment';
 import { ServicesSection } from './components/ServicesSection';
 import { PartsCatalog } from './components/PartsCatalog';
 import { ProductDetailModal } from './components/ProductDetailModal';
@@ -52,7 +53,18 @@ export default function App() {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('All');
   const [activeSection, setActiveSection] = useState('home');
-  const [selectedVehicle, setSelectedVehicle] = useState<SelectedVehicle | null>(null);
+
+  // Vehicle Fitment Hook (Listens & Auto-saves vehicle choice to Firestore profile)
+  const {
+    selectedVehicle,
+    updateVehicleFitment,
+    isSaving: isSavingFitment,
+    saveSuccess: saveFitmentSuccess,
+  } = useVehicleFitment(user, (vehicle) => {
+    if (vehicle?.model) {
+      setSearchQuery(vehicle.model);
+    }
+  });
 
   // Modals
   const [isCartOpen, setIsCartOpen] = useState(false);
@@ -104,8 +116,8 @@ export default function App() {
         if (!profile) {
           profile = {
             uid: firebaseUser.uid,
-            email: firebaseUser.email || 'zaidenyuri26@gmail.com',
-            displayName: firebaseUser.displayName || firebaseUser.email?.split('@')[0] || 'Zaiden Yuri',
+            email: firebaseUser.email || '',
+            displayName: firebaseUser.displayName || (firebaseUser.email ? firebaseUser.email.split('@')[0] : 'User'),
             role: isAdminEmail ? 'admin' : 'customer'
           };
         } else if (isAdminEmail && profile.role !== 'admin') {
@@ -256,6 +268,18 @@ export default function App() {
 
 
 
+
+        {/* Vehicle Fitment Guarantee Selector */}
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-8 pb-2" id="fitment-selector">
+          <FitmentSelector
+            selectedVehicle={selectedVehicle}
+            onSelectVehicle={(vehicle) => updateVehicleFitment(vehicle)}
+            onFilterFitment={(modelKeyword) => setSearchQuery(modelKeyword)}
+            user={user}
+            isSaving={isSavingFitment}
+            saveSuccess={saveFitmentSuccess}
+          />
+        </div>
 
         {/* Parts Store & Catalog */}
         <PartsCatalog
